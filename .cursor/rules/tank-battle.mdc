@@ -1,0 +1,49 @@
+---
+description: 坦克大战 iOS 项目的技术栈、架构与代码约束
+alwaysApply: true
+---
+
+# 坦克大战项目规则
+
+iOS 2D 像素风坦克大战。Swift + SpriteKit，SwiftUI 的 App 生命周期用 `SpriteView` 承载 `SKScene`，iOS 16+，竖屏锁定，真机免费个人签名调试。
+
+权威规格在 `docs/GAME_DESIGN.md`（规则与数值）和 `docs/ROADMAP.md`（阶段目标与验收标准），动手前先读。当前阶段的具体要求见 `docs/PROMPTS.md`。
+
+## 目录结构
+
+新文件必须落在对应目录：`App/` 入口与容器视图、`Scenes/` SKScene、`Entities/` 游戏实体、`Systems/` 系统与管理器、`Input/` 摇杆与按键、`UI/` HUD 与浮层、`Data/` 配置与关卡数据、`Resources/` 素材。
+
+## 硬性约束
+
+- 禁止用 `physicsBody` / `physicsWorld` 驱动坦克或子弹移动，全部走 `CollisionSystem` 的自研 AABB
+- 坐标与行列互转只能调用 `GridMap.center(of:)` 和 `GridMap.gridPoint(at:)`
+- 禁止魔法数字，所有可调数值定义在 `Data/GameConfig.swift`
+- `zPosition` 用 `GameConfig` 里的分层常量，不要写字面量
+- 所有贴图 `filteringMode = .nearest`
+- 有时限的状态（护盾、冻结、僵直、铲子）必须走 `StatusEffectManager`，不许用零散的 `SKAction.wait` 或 `Timer` 自行计时，否则暂停会失效
+- `SKAction` 与 `SKTexture` 复用静态实例，不要每帧或每次触发新建
+- 不引入任何第三方依赖（无 CocoaPods / SPM）、不引入 `SKTileMapNode`、不引入 GameplayKit 寻路
+- 主循环里 BFS 寻路每帧最多 1 次、结果缓存 0.5 秒
+
+## 代码风格
+
+```swift
+// ❌ BAD：魔法数字 + 手写坐标转换
+node.position = CGPoint(x: CGFloat(col) * 16 + 8, y: 208 - (CGFloat(row) * 16 + 8))
+tank.moveSpeed = 48
+
+// ✅ GOOD
+node.position = map.center(of: GridPoint(col: col, row: row))
+tank.moveSpeed = GameConfig.playerSpeed
+```
+
+- 实体类型用名词（`PlayerTank`），系统用 `-System` 或 `-Manager`/`-Controller` 后缀
+- 布尔属性用 `is` / `has` / `can` 前缀
+- 注释只写「为什么」和约束，不写「这行在做什么」；禁止用注释解释本次改动
+
+## 工作方式
+
+- 一次只做当前阶段的事，不要提前实现后续阶段的功能
+- 改 bug 前先说明根因判断和验证方式，等确认后再改，不要大范围重写
+- 新增源文件后提醒我在 Xcode 里确认已加入 `TankBattle` target
+- 用中文回答
