@@ -12,6 +12,9 @@ final class MapRenderer {
     private let terrainLayer = SKNode()
     private let grassLayer = SKNode()
     private var tileNodes: [GridPoint: SKSpriteNode] = [:]
+    private var waterNodes: [SKSpriteNode] = []
+    private var waterAge: TimeInterval = 0
+    private var waterFrame = 0
 
     init(map: GridMap) {
         self.map = map
@@ -28,6 +31,7 @@ final class MapRenderer {
     func renderAll() {
         tileNodes.values.forEach { $0.removeFromParent() }
         tileNodes.removeAll()
+        waterNodes.removeAll()
 
         for row in 0..<GameConfig.gridCount {
             for col in 0..<GameConfig.gridCount {
@@ -36,9 +40,24 @@ final class MapRenderer {
         }
     }
 
+    func tickWater(dt: TimeInterval) {
+        guard !waterNodes.isEmpty else { return }
+        waterAge += dt
+        let frame = Int(waterAge / GameConfig.waterFrameDuration) % 2
+        guard frame != waterFrame else { return }
+        waterFrame = frame
+        guard let texture = TileTextures.texture(for: .water, frame: frame) else { return }
+        for node in waterNodes {
+            node.texture = texture
+        }
+    }
+
     /// 子弹破墙后只重画这一个 tile，整图重建会在 60fps 下明显掉帧
     func refreshTile(at point: GridPoint) {
-        tileNodes[point]?.removeFromParent()
+        if let old = tileNodes[point] {
+            waterNodes.removeAll { $0 === old }
+            old.removeFromParent()
+        }
         tileNodes[point] = nil
         addNode(at: point)
     }
@@ -53,5 +72,8 @@ final class MapRenderer {
         let layer = type == .grass ? grassLayer : terrainLayer
         layer.addChild(node)
         tileNodes[point] = node
+        if type == .water {
+            waterNodes.append(node)
+        }
     }
 }

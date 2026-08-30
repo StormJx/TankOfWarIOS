@@ -315,10 +315,13 @@ AI 不适合直接生成 `.xcodeproj`（pbxproj 格式极易损坏），这一�
   所以另加了 `GameConfig.debugTerrainShowcase` 开关加载一张摆满全部地形的调试地图，
   用来核对贴图与草丛遮挡，正式关卡数据不受污染；Xcode 模板自带的 UI 测试里
   `testLaunchPerformance` 单次要跑近 20 分钟，已删除
-- [ ] 阶段 2 玩家坦克与操控
-- [ ] 阶段 3 敌方坦克与 AI
-- [ ] 阶段 4 道具系统
-- [ ] 阶段 5 关卡流程与 10 关数据
-- [ ] 阶段 6 Boss 战
-- [ ] 阶段 7 美术与音效润色
+- [x] 阶段 2 玩家坦克与操控 —— 操控是独立 `ControlScene` + 下方第二个 `SpriteView`；
+  `Bullet.moveSpeed` 不能叫 `speed`（与 `SKNode.speed` 冲突）
+- [x] 阶段 3 敌方坦克与 AI —— 每帧最多 1 次 BFS，路径缓存 0.5 秒
+- [x] 阶段 4 道具系统 —— 有时限状态必须走 `StatusEffectManager`，暂停才不会失效
+- [x] 阶段 5 关卡流程与 10 关数据 —— 结算必须 one-shot，离开对局要 `gameScene = nil`；
+  第 3/6/9/10 的 `bossType` 先当普通关跑通
+- [x] 阶段 6 Boss 战 —— 多 tile 碰撞盒必须等于视觉尺寸；手雷对 Boss 只掉 3 血
+- [x] 阶段 7 美术与音效润色 —— 换图换音只需同名替换 atlas / Audio；未改战斗逻辑
+- [x] 试玩反馈优化 —— 菜单底色、中英文、炮管、地形钢墙；随后补了弹速/道具节奏、击杀飘分、模拟器键盘
 - [ ] 阶段 8 平衡、性能与真机发布

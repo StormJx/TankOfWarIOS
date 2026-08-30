@@ -6,24 +6,27 @@
 import SpriteKit
 import UIKit
 
-/// 阶段 1-6 的地形占位贴图，由代码生成。阶段 7 换成 texture atlas 时
-/// 只替换内部实现，对外始终只有 texture(for:) 这一个入口。
+/// 对外始终只有 texture(for:) 这一个入口。优先读 atlas，缺图再走代码占位。
 enum TileTextures {
 
-    private static var cache: [TileType: SKTexture] = [:]
+    private static var cache: [String: SKTexture] = [:]
 
     /// 空地不生成节点，直接透出场景底色，所以返回 nil
-    static func texture(for type: TileType) -> SKTexture? {
+    static func texture(for type: TileType, frame: Int = 0) -> SKTexture? {
         guard type != .empty else { return nil }
-        if let cached = cache[type] {
+        if let atlas = SpriteProvider.tile(type, frame: frame) {
+            return atlas
+        }
+        let key = "\(type)-\(frame)"
+        if let cached = cache[key] {
             return cached
         }
-        let texture = make(for: type)
-        cache[type] = texture
+        let texture = make(for: type, frame: frame)
+        cache[key] = texture
         return texture
     }
 
-    private static func make(for type: TileType) -> SKTexture {
+    private static func make(for type: TileType, frame: Int = 0) -> SKTexture {
         let side = GameConfig.tileSize
         let format = UIGraphicsImageRendererFormat.default()
         // 贴图必须正好是 16x16 像素，放大交给 SpriteKit 的 nearest 采样，
@@ -32,7 +35,7 @@ enum TileTextures {
 
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
         let image = renderer.image { context in
-            draw(type, in: context.cgContext, side: side)
+            draw(type, frame: frame, in: context.cgContext, side: side)
         }
 
         let texture = SKTexture(image: image)
@@ -40,7 +43,7 @@ enum TileTextures {
         return texture
     }
 
-    private static func draw(_ type: TileType, in context: CGContext, side: CGFloat) {
+    private static func draw(_ type: TileType, frame: Int, in context: CGContext, side: CGFloat) {
         let base = baseColor(for: type)
         fill(CGRect(x: 0, y: 0, width: side, height: side), with: base, in: context)
 
@@ -66,8 +69,9 @@ enum TileTextures {
             fill(CGRect(x: thickness, y: thickness, width: quarter, height: quarter), with: light, in: context)
 
         case .water:
-            fill(CGRect(x: dot, y: quarter, width: half, height: thickness), with: light, in: context)
-            fill(CGRect(x: half - dot, y: side - quarter, width: half, height: thickness), with: light, in: context)
+            let shift = CGFloat(frame) * dot
+            fill(CGRect(x: dot + shift, y: quarter, width: half, height: thickness), with: light, in: context)
+            fill(CGRect(x: half - dot - shift, y: side - quarter, width: half, height: thickness), with: light, in: context)
 
         case .grass:
             for spot in [CGPoint(x: dot, y: dot),

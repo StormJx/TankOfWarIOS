@@ -19,6 +19,33 @@ enum TileType {
 struct GridPoint: Hashable {
     let col: Int
     let row: Int
+
+    func neighbor(in direction: Direction) -> GridPoint {
+        switch direction {
+        case .up: return GridPoint(col: col, row: row - 1)
+        case .down: return GridPoint(col: col, row: row + 1)
+        case .left: return GridPoint(col: col - 1, row: row)
+        case .right: return GridPoint(col: col + 1, row: row)
+        }
+    }
+
+    func manhattanDistance(to other: GridPoint) -> Int {
+        abs(col - other.col) + abs(row - other.row)
+    }
+
+    func sharesAxis(with other: GridPoint) -> Bool {
+        col == other.col || row == other.row
+    }
+
+    var adjacentEight: [GridPoint] {
+        var points: [GridPoint] = []
+        for rowOffset in -1...1 {
+            for colOffset in -1...1 where rowOffset != 0 || colOffset != 0 {
+                points.append(GridPoint(col: col + colOffset, row: row + rowOffset))
+            }
+        }
+        return points
+    }
 }
 
 /// 战场的网格数据源，同时是行列与场景坐标互转的唯一入口。
@@ -124,6 +151,44 @@ final class GridMap {
         return tiles[point.row][point.col]
     }
 
+    func isOpenFootprint(origin: GridPoint, tiles: Int) -> Bool {
+        for rowOffset in 0..<tiles {
+            for colOffset in 0..<tiles {
+                if blocksTank(at: GridPoint(col: origin.col + colOffset, row: origin.row + rowOffset)) {
+                    return false
+                }
+            }
+        }
+        return true
+    }
+
+    func firstOpenFootprint(tiles: Int) -> GridPoint? {
+        var candidates: [GridPoint] = []
+        if let spawn = enemySpawns.dropFirst().first {
+            candidates.append(
+                GridPoint(col: max(0, spawn.col - tiles / 2), row: spawn.row)
+            )
+        }
+        for row in 0...(GameConfig.gridCount - tiles) {
+            for col in 0...(GameConfig.gridCount - tiles) {
+                let origin = GridPoint(col: col, row: row)
+                if !candidates.contains(origin) {
+                    candidates.append(origin)
+                }
+            }
+        }
+        return candidates.first { isOpenFootprint(origin: $0, tiles: tiles) }
+    }
+
+    func centerOfFootprint(origin: GridPoint, tiles: Int) -> CGPoint {
+        let minCenter = center(of: origin)
+        let maxCenter = center(of: GridPoint(col: origin.col + tiles - 1, row: origin.row + tiles - 1))
+        return CGPoint(
+            x: (minCenter.x + maxCenter.x) / 2,
+            y: (minCenter.y + maxCenter.y) / 2
+        )
+    }
+
     func firstPoint(of type: TileType) -> GridPoint? {
         for row in 0..<GameConfig.gridCount {
             for col in 0..<GameConfig.gridCount where tiles[row][col] == type {
@@ -186,6 +251,18 @@ final class GridMap {
             return true
         case .empty, .water, .grass, .ice, .base:
             return false
+        }
+    }
+
+    func setTile(_ type: TileType, at point: GridPoint) {
+        guard isInside(point) else { return }
+        tiles[point.row][point.col] = type
+    }
+
+    /// 基地周围 8 格里当前是砖/钢的才算围墙，空地不纳入快照
+    func baseWallPoints() -> [GridPoint] {
+        basePosition.adjacentEight.filter { point in
+            isInside(point) && (tile(at: point) == .brick || tile(at: point) == .steel)
         }
     }
 }

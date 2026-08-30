@@ -6,61 +6,159 @@
 import SpriteKit
 import SwiftUI
 
-/// 竖屏三段布局：顶部 HUD、中间正方形战场、底部控制区。
-/// HUD 与控制区在阶段 5 / 阶段 2 才有真实内容，这里只占位。
 struct GameContainerView: View {
 
-    @State private var scene = GameScene.battlefield()
+    @StateObject private var flow = GameFlow()
+    @State private var overlayScene: SKScene = SKScene(size: GameConfig.sceneSize)
+    @State private var gameScene: GameScene?
+    @State private var controlScene: ControlScene?
+    @State private var hudScene: HUDScene?
 
     var body: some View {
-        GeometryReader { geometry in
-            VStack(spacing: 0) {
-                hudPlaceholder
-                battlefield(side: battlefieldSide(in: geometry.size))
-                controlAreaPlaceholder
+        Group {
+            if flow.screen == .playing {
+                playLayout
+            } else {
+                SpriteView(scene: overlayScene, preferredFramesPerSecond: GameConfig.preferredFramesPerSecond)
             }
         }
-        // 战场底色延伸到刘海与 home indicator 区域，避免出现白边
-        .background(Color(GameConfig.battlefieldColor).ignoresSafeArea())
+        .background(Color(chromeColor).ignoresSafeArea())
+        .onAppear(perform: startAtMenu)
+        .onChange(of: flow.screen) { screen in
+            syncOverlay(screen)
+        }
+        .onChange(of: flow.playGeneration) { _ in
+            rebuildGame()
+        }
+        .onChange(of: flow.isPaused) { paused in
+            applyPause(paused)
+        }
     }
 
-    /// 战场是正方形，边长取「可用宽度」与「扣掉 HUD 和控制区下限后的剩余高度」的较小值，
-    /// 这样在 iPhone SE 到 Pro Max 上都完整可见且不会被拉伸
+    /// 菜单/结算跟菜单色，进对局后回到战场黑，避免战场外一圈和菜单色打架
+    private var chromeColor: SKColor {
+        flow.screen == .playing ? GameConfig.battlefieldColor : GameConfig.menuBackgroundColor
+    }
+
+    private var playLayout: some View {
+        GeometryReader { geometry in
+            ZStack {
+                VStack(spacing: 0) {
+                    hudBand
+                    battlefield(side: battlefieldSide(in: geometry.size))
+                    controlPad
+                }
+                KeyboardCatcher(input: flow.input)
+                    .frame(width: 0, height: 0)
+                    .allowsHitTesting(false)
+                if flow.isPaused {
+                    PauseOverlay(
+                        onResume: { flow.resume() },
+                        onRestart: { flow.restartCurrentLevel() },
+                        onMenu: { flow.backToMenu() }
+                    )
+                }
+            }
+        }
+    }
+
     private func battlefieldSide(in size: CGSize) -> CGFloat {
         let heightForBattlefield = size.height - GameConfig.hudHeight - GameConfig.controlAreaMinHeight
         return max(0, min(size.width, heightForBattlefield))
     }
 
     private func battlefield(side: CGFloat) -> some View {
-        SpriteView(
-            scene: scene,
-            preferredFramesPerSecond: GameConfig.preferredFramesPerSecond,
-            options: [.shouldCullNonVisibleNodes],
-            debugOptions: debugOptions
-        )
+        Group {
+            if let gameScene {
+                SpriteView(
+                    scene: gameScene,
+                    preferredFramesPerSecond: GameConfig.preferredFramesPerSecond,
+                    options: [.shouldCullNonVisibleNodes],
+                    debugOptions: debugOptions
+                )
+            } else {
+                Color.black
+            }
+        }
         .frame(width: side, height: side)
+    }
+
+    private var controlPad: some View {
+        Group {
+            if let controlScene {
+                SpriteView(
+                    scene: controlScene,
+                    preferredFramesPerSecond: GameConfig.preferredFramesPerSecond,
+                    options: [.shouldCullNonVisibleNodes]
+                )
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var hudBand: some View {
+        ZStack(alignment: .trailing) {
+            if let hudScene {
+                SpriteView(scene: hudScene, preferredFramesPerSecond: GameConfig.preferredFramesPerSecond)
+            }
+            Button("II") { flow.togglePause() }
+                .font(.system(size: GameConfig.hudIconFontSize, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color(GameConfig.hudTextColor))
+                .padding(.trailing, GameConfig.hudPauseButtonTrailing)
+        }
+        .frame(height: GameConfig.hudHeight)
     }
 
     private var debugOptions: SpriteView.DebugOptions {
         GameConfig.debugShowStats ? [.showsFPS, .showsNodeCount, .showsDrawCount] : []
     }
 
-    private var hudPlaceholder: some View {
-        placeholderBand(title: "HUD", fill: GameConfig.hudPlaceholderColor)
-            .frame(height: GameConfig.hudHeight)
+    private func startAtMenu() {
+        AudioManager.prepare()
+        PresentationCues.menu()
+        if controlScene == nil {
+            controlScene = ControlScene(input: flow.input)
+        }
+        if hudScene == nil {
+            hudScene = HUDScene(hud: flow.hud)
+        }
+        overlayScene = MenuScene(flow: flow)
     }
 
-    private var controlAreaPlaceholder: some View {
-        placeholderBand(title: "CONTROLS", fill: GameConfig.controlAreaPlaceholderColor)
-            .frame(maxHeight: .infinity)
+    private func syncOverlay(_ screen: AppScreen) {
+        if screen != .playing {
+            gameScene = nil
+        }
+        switch screen {
+        case .menu:
+            PresentationCues.menu()
+            overlayScene = MenuScene(flow: flow)
+        case .levelClear:
+            overlayScene = LevelClearScene(flow: flow)
+        case .gameOver:
+            overlayScene = GameOverScene(flow: flow)
+        case .victory:
+            PresentationCues.menu()
+            overlayScene = VictoryScene(flow: flow)
+        case .playing:
+            break
+        }
     }
 
-    private func placeholderBand(title: String, fill: SKColor) -> some View {
-        ZStack {
-            Color(fill)
-            Text(title)
-                .font(.system(.caption, design: .monospaced).weight(.bold))
-                .foregroundStyle(Color(GameConfig.placeholderLabelColor))
+    private func rebuildGame() {
+        let scene = GameScene.battlefield(flow: flow)
+        gameScene = scene
+        applyPause(flow.isPaused)
+    }
+
+    private func applyPause(_ paused: Bool) {
+        gameScene?.isPaused = paused
+        controlScene?.isPaused = paused
+        controlScene?.isUserInteractionEnabled = !paused
+        if paused {
+            flow.input.reset()
+        } else {
+            gameScene?.prepareForResume()
         }
     }
 }
