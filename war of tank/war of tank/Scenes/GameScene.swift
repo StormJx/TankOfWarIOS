@@ -5,9 +5,12 @@
 
 import SpriteKit
 
-/// 阶段 0 的骨架场景：只确立 208x208 的逻辑坐标系和左下角原点，
-/// 地图、实体与主循环从阶段 1 起接入。
+/// 阶段 1 的场景：确立 208x208 的逻辑坐标系与左下角原点，加载并渲染关卡地形。
+/// 移动、输入与碰撞从阶段 2 起接入。
 final class GameScene: SKScene {
+
+    private var map: GridMap?
+    private var mapRenderer: MapRenderer?
 
     /// 场景尺寸只允许从 GameConfig 推导，避免调用方各自构造 CGSize
     static func battlefield() -> GameScene {
@@ -23,7 +26,7 @@ final class GameScene: SKScene {
         scaleMode = .aspectFit
         backgroundColor = GameConfig.battlefieldColor
 
-        addChild(makePlaceholderBlock())
+        load(GameConfig.debugTerrainShowcase ? Levels.terrainShowcase : Levels.level1)
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -31,14 +34,64 @@ final class GameScene: SKScene {
         fatalError("GameScene 不支持从归档初始化")
     }
 
-    /// 阶段 1 接入真实地图后删除
-    private func makePlaceholderBlock() -> SKSpriteNode {
-        let block = SKSpriteNode(
-            color: GameConfig.playerColor,
-            size: CGSize(width: GameConfig.tileSize, height: GameConfig.tileSize)
-        )
-        // 13 是奇数，正中格 (6,6) 的中心恰好落在场景几何中心
-        block.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        return block
+    private func load(_ level: LevelData) {
+        let map = GridMap(rows: level.rows)
+        let renderer = MapRenderer(map: map)
+        renderer.attach(to: self)
+
+        self.map = map
+        self.mapRenderer = renderer
+
+        if GameConfig.debugShowGrid {
+            addChild(makeGridOverlay(for: map))
+        }
+        if GameConfig.debugTerrainShowcase {
+            addGrassOcclusionProbe(in: map)
+        }
+    }
+
+    private func makeGridOverlay(for map: GridMap) -> SKNode {
+        let overlay = SKNode()
+        overlay.zPosition = GameConfig.Layer.ui
+
+        let path = CGMutablePath()
+        for index in 0...GameConfig.gridCount {
+            let offset = CGFloat(index) * GameConfig.tileSize
+            path.move(to: CGPoint(x: offset, y: 0))
+            path.addLine(to: CGPoint(x: offset, y: GameConfig.sceneSide))
+            path.move(to: CGPoint(x: 0, y: offset))
+            path.addLine(to: CGPoint(x: GameConfig.sceneSide, y: offset))
+        }
+
+        let lines = SKShapeNode(path: path)
+        lines.strokeColor = GameConfig.debugGridLineColor
+        lines.lineWidth = GameConfig.debugGridLineWidth
+        overlay.addChild(lines)
+
+        for row in 0..<GameConfig.gridCount {
+            for col in 0..<GameConfig.gridCount {
+                let point = GridPoint(col: col, row: row)
+                let label = SKLabelNode(text: "\(col),\(row)")
+                label.fontName = GameConfig.debugGridLabelFontName
+                label.fontSize = GameConfig.debugGridLabelFontSize
+                label.fontColor = GameConfig.debugGridLabelColor
+                label.horizontalAlignmentMode = .center
+                label.verticalAlignmentMode = .center
+                label.position = map.center(of: point)
+                overlay.addChild(label)
+            }
+        }
+
+        return overlay
+    }
+
+    /// 在第一块草丛下面放个坦克层的方块，用来验证草丛确实盖在坦克之上
+    private func addGrassOcclusionProbe(in map: GridMap) {
+        guard let grassPoint = map.firstPoint(of: .grass) else { return }
+
+        let probe = SKSpriteNode(color: GameConfig.playerColor, size: GameConfig.tileNodeSize)
+        probe.position = map.center(of: grassPoint)
+        probe.zPosition = GameConfig.Layer.tank
+        addChild(probe)
     }
 }

@@ -308,8 +308,13 @@ AI 不适合直接生成 `.xcodeproj`（pbxproj 格式极易损坏），这一�
 
 每完成一个阶段，在这里打勾并写一句实际遇到的坑，方便后面回溯。
 
-- [ ] 阶段 0 环境与工程骨架
-- [ ] 阶段 1 网格地图与渲染
+- [x] 阶段 0 环境与工程骨架 —— 工程误用 Game 模板建的，转 SwiftUI 生命周期时最容易漏掉
+  `INFOPLIST_KEY_UIMainStoryboardFile`，留着它会启动即闪退；iPad 设备族会强制要求支持四个方向，
+  与竖屏锁定冲突，直接把 `TARGETED_DEVICE_FAMILY` 收成 `1`
+- [x] 阶段 1 网格地图与渲染 —— `GAME_DESIGN` 第 7 节的第 1 关只有砖墙，没有钢墙/河流/草丛/冰面，
+  所以另加了 `GameConfig.debugTerrainShowcase` 开关加载一张摆满全部地形的调试地图，
+  用来核对贴图与草丛遮挡，正式关卡数据不受污染；Xcode 模板自带的 UI 测试里
+  `testLaunchPerformance` 单次要跑近 20 分钟，已删除
 - [ ] 阶段 2 玩家坦克与操控
 - [ ] 阶段 3 敌方坦克与 AI
 - [ ] 阶段 4 道具系统
