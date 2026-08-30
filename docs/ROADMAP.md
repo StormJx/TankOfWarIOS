@@ -29,13 +29,18 @@ AI 不适合直接生成 `.xcodeproj`（pbxproj 格式极易损坏），这一�
 1. Xcode → `File` → `New` → `Project`
 2. 选 `iOS` → `App`（**不要**选 Game 模板，它会生成一堆用不上的 `.sks` 文件）
 3. 填写：
-   - Product Name: `TankBattle`
+   - Product Name: `war of tank`
    - Interface: `SwiftUI`
    - Language: `Swift`
    - Storage: `None`，测试选项都不勾
 4. 保存位置选到本仓库根目录 `war of tank/`，**取消勾选** "Create Git repository"（仓库已存在）
-5. 选中 TARGETS → `TankBattle` → `General` → `Minimum Deployments` 设为 `iOS 16.0`
+5. 选中 TARGETS → `war of tank` → `General` → `Minimum Deployments` 设为 `iOS 16.0`
 6. 同一页 `Deployment Info` → Device Orientation 只保留 `Portrait`，取消 Landscape Left / Right / Upside Down
+
+> **实际执行情况（2026-08-01）**：工程当初误用了 Game 模板创建，产出的是 UIKit 生命周期
+> （`AppDelegate` + `Main.storyboard` + `GameScene.sks` + `Actions.sks`），最低版本 18.2，
+> 横竖屏都开着。因为签名与 bundle id（`JiXiang.war-of-tank`）已经配好，选择原地转换而不是重建，
+> 转换动作见下面的 0.4。上面的步骤 1-6 保留作为将来重建工程时的参照。
 
 ### 0.2 免费签名 + 真机调试
 
@@ -53,10 +58,39 @@ AI 不适合直接生成 `.xcodeproj`（pbxproj 格式极易损坏），这一�
 
 ### 0.3 代码产出
 
-- `App/TankBattleApp.swift` — SwiftUI `@main`，`WindowGroup` 里放根视图
+以下路径都相对于 target 源码目录 `war of tank/war of tank/`。
+
+- `App/WarOfTankApp.swift` — SwiftUI `@main`，`WindowGroup` 里放根视图
 - `App/GameContainerView.swift` — 用 `GeometryReader` 计算战场缩放，`SpriteView(scene:)` 承载场景，上方 HUD 占位、下方控制区占位
 - `Scenes/GameScene.swift` — `SKScene` 子类，`size = CGSize(width: 208, height: 208)`，`scaleMode = .aspectFit`，`anchorPoint = .zero`，背景黑色，中心放一个黄色 `SKSpriteNode`
 - `Data/GameConfig.swift` — 常量集中地，先放 `tileSize = 16`、`gridCount = 13`、`playerSpeed = 48`
+
+### 0.4 Game 模板 → SwiftUI 生命周期的原地转换（已完成）
+
+在 Xcode 里删掉 6 个模板文件：`AppDelegate.swift`、`GameViewController.swift`、
+`GameScene.swift`（模板那个，在 target 根目录）、`GameScene.sks`、`Actions.sks`、
+`Base.lproj/Main.storyboard`。`LaunchScreen.storyboard` 与 `Assets.xcassets` 保留。
+
+配套改的 build settings（`project.pbxproj`）：
+
+| 设置 | 改前 | 改后 | 原因 |
+| --- | --- | --- | --- |
+| `INFOPLIST_KEY_UIMainStoryboardFile` | `Main` | 删除 | storyboard 已删，留着会启动即闪退 |
+| `IPHONEOS_DEPLOYMENT_TARGET` | `18.2` | `16.0` | 规格要求 iOS 16+ |
+| `INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone` | 竖屏 + 横屏左右 | 仅 `UIInterfaceOrientationPortrait` | 竖屏锁定 |
+| `INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad` | 四方向 | 删除 | 不再支持 iPad |
+| `TARGETED_DEVICE_FAMILY` | `1,2` | `1` | iPad 会要求支持全部四方向，与竖屏锁定冲突 |
+
+签名相关的 `DEVELOPMENT_TEAM`、`CODE_SIGN_STYLE`、`PRODUCT_BUNDLE_IDENTIFIER` 一律没动。
+
+### 0.5 关于新增源文件（重要，影响后续所有阶段）
+
+本工程是 `objectVersion = 77`，用的是 Xcode 16 的 **同步文件夹**
+（`PBXFileSystemSynchronizedRootGroup`）：`war of tank/war of tank/` 目录下的文件由 Xcode 自动
+纳入 target，**不需要 `File > Add Files`**，`project.pbxproj` 里也不会出现单个文件的引用。
+
+所以后续阶段新建源文件只要放进对应目录就会被编译，删文件也只要从磁盘删掉。如果 Xcode 正开着而没有
+立刻看到新文件，退出重开一次即可。
 
 ### 验收清单
 

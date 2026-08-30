@@ -4,7 +4,7 @@
 
 每段提示词统一四段式：**当前状态 / 本阶段目标 / 硬性约束 / 验收标准**。这个结构的作用是把 AI 的行为框死在一个阶段内，防止它一次性写出一堆你没法验证的代码。
 
-写完代码后，记得在 Xcode 里确认新文件已加入 `TankBattle` target（Xcode 一般会自动加，但 AI 直接在磁盘上创建的文件需要你用 `File > Add Files to "TankBattle"` 手动添加一次）。
+本工程用 Xcode 16 的同步文件夹机制，新文件放进 `war of tank/war of tank/` 下的对应目录就自动进 target，不需要手动 `Add Files`（详见 `docs/ROADMAP.md` 0.5）。
 
 ---
 
@@ -39,13 +39,13 @@
 
 ```
 【当前状态】
-我已经在 Xcode 里用 iOS App 模板（SwiftUI + Swift）创建好了 TankBattle 工程，位于仓库根目录，已配置好免费个人签名、iOS 16 最低版本、仅竖屏。工程里目前只有 Xcode 自动生成的 TankBattleApp.swift 和 ContentView.swift，还没有任何游戏代码。
+我已经在 Xcode 里创建好了 war of tank 工程，位于仓库根目录，已配置好免费个人签名。注意工程是误用 Game 模板建的，目前是 UIKit 生命周期（AppDelegate + Main.storyboard + GameScene.sks + Actions.sks），最低版本 18.2，横竖屏都开着，需要原地转换成 SwiftUI 生命周期。签名和 bundle id 不要动。
 
 【本阶段目标】
 搭出最小可运行骨架，真机上竖屏显示：顶部 HUD 占位条、中间黑色正方形战场、底部控制区占位，战场中心有一个 16x16 的黄色方块。
 
 需要创建的文件：
-1. App/TankBattleApp.swift（替换现有内容）：@main，WindowGroup 里放 GameContainerView
+1. App/WarOfTankApp.swift：@main，WindowGroup 里放 GameContainerView
 2. App/GameContainerView.swift：用 GeometryReader 计算战场边长 = min(可用宽度, 可用高度 - HUD高度 - 控制区最小高度)，用 SpriteView 承载 GameScene，上方 44pt HUD 占位（灰色矩形 + 文字 HUD），下方剩余空间作为控制区占位
 3. Scenes/GameScene.swift：SKScene 子类，size = 208x208，scaleMode = .aspectFit，anchorPoint = .zero，背景黑色，中心放一个黄色 SKSpriteNode(color:size:)
 4. Data/GameConfig.swift：常量集中定义 tileSize = 16、gridCount = 13、sceneSide = 208、hudHeight = 44、playerSpeed = 48、debugShowGrid = false
@@ -73,7 +73,7 @@
 
 ```
 【当前状态】
-阶段 0 已完成。现有文件：App/TankBattleApp.swift、App/GameContainerView.swift、Scenes/GameScene.swift、Data/GameConfig.swift。真机上能显示 HUD 占位 + 208x208 黑色战场 + 控制区占位，战场中心有黄色测试方块。
+阶段 0 已完成。现有文件：App/WarOfTankApp.swift、App/GameContainerView.swift、Scenes/GameScene.swift、Data/GameConfig.swift。真机上能显示 HUD 占位 + 208x208 黑色战场 + 控制区占位，战场中心有黄色测试方块。
 
 【本阶段目标】
 实现网格地图数据结构与渲染，把 docs/GAME_DESIGN.md 第 7 节的第 1 关字符地图渲染到屏幕上。

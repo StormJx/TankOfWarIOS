@@ -45,5 +45,5 @@ tank.moveSpeed = GameConfig.playerSpeed
 
 - 一次只做当前阶段的事，不要提前实现后续阶段的功能
 - 改 bug 前先说明根因判断和验证方式，等确认后再改，不要大范围重写
-- 新增源文件后提醒我在 Xcode 里确认已加入 `TankBattle` target
+- 工程用 Xcode 16 的同步文件夹（`PBXFileSystemSynchronizedRootGroup`），源文件放进 `war of tank/war of tank/` 下的对应目录就自动进 target，不需要 `Add Files`，也不要去改 `project.pbxproj` 添加文件引用
 - 用中文回答
