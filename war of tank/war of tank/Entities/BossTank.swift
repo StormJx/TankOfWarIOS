@@ -131,31 +131,17 @@ class BossTank: EnemyTank {
 
     static func bodyTexture(side: CGFloat) -> SKTexture {
         if let cached = textureCache[side] { return cached }
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
-        let image = renderer.image { context in
-            let cg = context.cgContext
-            cg.setFillColor(GameConfig.bossColor.cgColor)
-            cg.fill(CGRect(x: 0, y: 0, width: side, height: side))
-            let barrelWidth = side / 4
-            let barrelHeight = side / 2
-            cg.setFillColor(GameConfig.bossColor.adjustingBrightness(by: GameConfig.enemyBarrelDarkenFactor).cgColor)
-            cg.fill(
-                CGRect(
-                    x: (side - barrelWidth) / 2,
-                    y: 0,
-                    width: barrelWidth,
-                    height: barrelHeight
-                )
-            )
-        }
-        let texture = SKTexture(image: image)
-        texture.filteringMode = .nearest
+        let texture = TankPlaceholderTextures.make(
+            body: GameConfig.bossColor,
+            track: GameConfig.bossColor.adjustingBrightness(by: GameConfig.enemyBarrelDarkenFactor),
+            barrel: .white,
+            side: side
+        )
         textureCache[side] = texture
         return texture
     }
 }
+
 
 private extension SKColor {
     func adjustingBrightness(by factor: CGFloat) -> SKColor {

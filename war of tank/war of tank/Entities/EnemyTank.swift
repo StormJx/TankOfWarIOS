@@ -150,32 +150,14 @@ class EnemyTank: Tank {
     }
 
     private static func makeBodyTexture(color: SKColor) -> SKTexture {
-        let side = GameConfig.tileSize
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
-        let image = renderer.image { context in
-            let cg = context.cgContext
-            cg.setFillColor(color.cgColor)
-            cg.fill(CGRect(x: 0, y: 0, width: side, height: side))
-
-            let barrelWidth = side / 4
-            let barrelHeight = side / 2
-            cg.setFillColor(color.adjustingBrightness(by: GameConfig.enemyBarrelDarkenFactor).cgColor)
-            cg.fill(
-                CGRect(
-                    x: (side - barrelWidth) / 2,
-                    y: 0,
-                    width: barrelWidth,
-                    height: barrelHeight
-                )
-            )
-        }
-        let texture = SKTexture(image: image)
-        texture.filteringMode = .nearest
-        return texture
+        TankPlaceholderTextures.make(
+            body: color,
+            track: color.adjustingBrightness(by: GameConfig.enemyBarrelDarkenFactor),
+            barrel: .white
+        )
     }
 }
+
 
 private extension SKColor {
     func adjustingBrightness(by factor: CGFloat) -> SKColor {

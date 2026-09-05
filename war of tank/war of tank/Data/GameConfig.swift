@@ -55,6 +55,16 @@ enum GameConfig {
     /// 战场让位给它以保证 iPhone SE 上摇杆不被挤掉
     static let controlAreaMinHeight: CGFloat = 180
 
+    /// 把可用边长收到 sceneSide 的整数倍，避免像素坦克被非整数倍拉伸发糊。
+    /// 可用边长小于一倍逻辑尺寸时退回 available，优先保证完整可见。
+    static func integerScaledBattlefieldSide(available: CGFloat) -> CGFloat {
+        let logical = sceneSide
+        guard available > 0, logical > 0 else { return 0 }
+        let scale = max(1, floor(available / logical))
+        let snapped = scale * logical
+        return snapped <= available + 0.5 ? snapped : available
+    }
+
     // MARK: - 帧率
 
     static let preferredFramesPerSecond: Int = 60
@@ -299,7 +309,16 @@ enum GameConfig {
     static let scorePopupRise: CGFloat = 12
     static let stageBannerDuration: TimeInterval = 1.2
     static let stageBannerFontSize: CGFloat = 18
-    static let trackFrameDuration: TimeInterval = 0.08
+    /// 履带两帧切换间隔；略快一点，16px 坦克移动时条纹差才够明显
+    static let trackFrameDuration: TimeInterval = 0.06
+
+    // MARK: - 坦克阴影（贴地感，不参与碰撞）
+
+    static let tankShadowAlpha: CGFloat = 0.32
+    static let tankShadowScaleX: CGFloat = 0.92
+    static let tankShadowScaleY: CGFloat = 0.42
+    static let tankShadowOffsetY: CGFloat = -2
+    static let tankShadowColor = SKColor.black
     static let waterFrameDuration: TimeInterval = 0.28
     static let explosionFrameDuration: TimeInterval = 0.06
     static let explosionFrameCount = 5

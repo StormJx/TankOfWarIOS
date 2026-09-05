@@ -9,7 +9,7 @@ import wave
 import zlib
 from pathlib import Path
 
-ROOT = Path("/Users/jixiang/war of tank/war of tank/war of tank")
+ROOT = Path(__file__).resolve().parents[1] / "war of tank" / "war of tank"
 ATLAS = ROOT / "Assets.xcassets" / "Sprites.spriteatlas"
 ICON = ROOT / "Assets.xcassets" / "AppIcon.appiconset"
 AUDIO = ROOT / "Resources" / "Audio"
@@ -80,51 +80,90 @@ def write_atlas(name: str, pixels: list[list[str]]) -> None:
 
 
 def tank(body: str, track: str, barrel: str, tread: str, frame: int) -> list[list[str]]:
-    """16x16 朝上。炮管加长加粗并加深色描边，朝向才能在 208 战场里看清。"""
-    t0, t1 = (tread, track) if frame == 0 else (track, tread)
-    outline = "0"
-    rows = []
-    for y in range(16):
-        row = ["."] * 16
-        if 6 <= y <= 14:
-            for x in (2, 3, 12, 13):
-                stripe = (x + y + frame) % 2 == 0
-                row[x] = t0 if stripe else t1
-            if y == 14:
-                for x in range(4, 12):
-                    row[x] = track
-        if 7 <= y <= 13:
-            for x in range(4, 12):
-                row[x] = body
-        elif y == 6:
-            for x in range(5, 11):
-                row[x] = body
-        if y == 9:
-            row[7] = barrel
-            row[8] = barrel
-        if y <= 5:
-            row[5] = outline
-            row[6] = barrel
-            row[7] = barrel
-            row[8] = barrel
-            row[9] = barrel
-            row[10] = outline
-            if y == 0:
-                row[5] = barrel
-                row[10] = barrel
-        rows.append(row)
+    """16x16 朝上。黑描边 + 独立炮塔 + 3px 履带；两帧只错履带条纹。"""
+    # 只靠条纹相位区分帧，不再对调颜色，避免相位与对调互相抵消
+    rows = [["."] * 16 for _ in range(16)]
+
+    def put(x: int, y: int, color: str) -> None:
+        if 0 <= x < 16 and 0 <= y < 16:
+            rows[y][x] = color
+
+    def track_color(x: int, y: int) -> str:
+        # 横向条纹 + 帧偏移，比棋盘格更像履带，也更少噪点
+        phase = y + frame
+        return tread if phase % 2 == 0 else track
+
+    # --- 履带（左右各 3px，y=5..14）---
+    for y in range(5, 15):
+        for x in (1, 2, 3, 12, 13, 14):
+            put(x, y, track_color(x, y))
+
+    # --- 车体 ---
+    for y in range(6, 14):
+        for x in range(4, 12):
+            put(x, y, body)
+    for x in range(5, 11):  # 前端收窄一格
+        put(x, 5, body)
+
+    # 体积：左上高光、右下暗部
+    put(4, 6, barrel)
+    put(5, 6, barrel)
+    put(10, 12, track)
+    put(11, 12, track)
+    put(10, 13, track)
+    put(11, 13, track)
+
+    # --- 炮塔（压在车体中央）---
+    for y in range(8, 12):
+        for x in range(5, 11):
+            put(x, y, track)
+    put(5, 8, barrel)
+    put(6, 8, barrel)
+    # 舱盖
+    put(7, 9, "0")
+    put(8, 9, "0")
+    put(7, 10, "0")
+    put(8, 10, "0")
+
+    # --- 炮管（y=0..4，避免与车头抢像素）---
+    for y in range(0, 5):
+        put(5, y, "0")
+        put(10, y, "0")
+        for x in range(6, 10):
+            put(x, y, barrel)
+    # 炮口高光
+    for x in range(6, 10):
+        put(x, 0, "1")
+    put(5, 0, barrel)
+    put(10, 0, barrel)
+    # 炮管根部接到炮塔
+    for x in range(6, 10):
+        put(x, 5, barrel)
+    put(5, 5, "0")
+    put(10, 5, "0")
+
+    # --- 黑描边：只描轮廓外一圈空像素，不改已有颜色 ---
+    opaque = {(x, y) for y in range(16) for x in range(16) if rows[y][x] != "."}
+    for x, y in list(opaque):
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < 16 and 0 <= ny < 16 and rows[ny][nx] == ".":
+                rows[ny][nx] = "0"
+
     return rows
 
 
+
 def boss(size: int, body: str, dark: str, accent: str, frame: int) -> list[list[str]]:
+    """多 tile Boss：加宽履带、炮塔中心块、全身描边，体量比小坦克更清晰。"""
     mid = size // 2
     barrel_w = 6 if size >= 32 else 4
     barrel_h = max(8, size // 3)
     left = mid - barrel_w // 2
     right = mid + barrel_w // 2 - 1
-    rows = []
+    rows: list[list[str]] = []
     for y in range(size):
-        row = []
+        row: list[str] = []
         for x in range(size):
             if y < barrel_h and left <= x <= right:
                 if x in (left, right):
@@ -133,15 +172,29 @@ def boss(size: int, body: str, dark: str, accent: str, frame: int) -> list[list[
                     row.append("1")
                 else:
                     row.append(accent)
-            elif x < 3 or x >= size - 3 or y >= size - 3:
-                stripe = (x + y + frame) % 2 == 0
+            elif x < 4 or x >= size - 4 or y >= size - 4:
+                stripe = ((x + y + frame * 2) // 2) % 2 == 0
                 row.append(dark if stripe else accent)
-            elif mid - 2 <= x <= mid + 1 and mid - 1 <= y <= mid + 1:
+            elif mid - 3 <= x <= mid + 2 and mid - 2 <= y <= mid + 2:
                 row.append(dark)
+            elif mid - 1 <= x <= mid and mid - 1 <= y <= mid:
+                row.append("0")
             else:
-                row.append(body)
+                # 轻微体积：右下偏暗
+                if x > mid + size // 6 and y > mid + size // 6:
+                    row.append(dark)
+                else:
+                    row.append(body)
         rows.append(row)
+
+    filled = [(x, y) for y in range(size) for x in range(size) if rows[y][x] != "."]
+    for x, y in filled:
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < size and 0 <= ny < size and rows[ny][nx] == ".":
+                rows[ny][nx] = "0"
     return rows
+
 
 
 def brick() -> list[list[str]]:

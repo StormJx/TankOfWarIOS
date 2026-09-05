@@ -62,9 +62,13 @@ struct GameContainerView: View {
         }
     }
 
+    /// 战场边长尽量落在 sceneSide 的整数倍上，避免 16px 坦克被非整数倍拉伸发糊
     private func battlefieldSide(in size: CGSize) -> CGFloat {
-        let heightForBattlefield = size.height - GameConfig.hudHeight - GameConfig.controlAreaMinHeight
-        return max(0, min(size.width, heightForBattlefield))
+        let available = max(
+            0,
+            min(size.width, size.height - GameConfig.hudHeight - GameConfig.controlAreaMinHeight)
+        )
+        return GameConfig.integerScaledBattlefieldSide(available: available)
     }
 
     private func battlefield(side: CGFloat) -> some View {
