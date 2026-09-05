@@ -16,10 +16,17 @@ final class PlayerTank: Tank {
                 return
             }
             applyFirepowerStats()
+            refreshAppearance()
         }
     }
 
-    var hasShield = false
+    /// 头盔道具：外壳换成钢蓝两色；过期后由 GameScene 置回 false
+    var hasShield = false {
+        didSet {
+            guard oldValue != hasShield else { return }
+            refreshAppearance()
+        }
+    }
 
     override var maxSimultaneousBullets: Int {
         firepower >= GameConfig.playerFirepowerDualShot
@@ -34,7 +41,7 @@ final class PlayerTank: Tank {
         )
         self.firepower = startingFirepower
         super.init(
-            texture: Self.bodyTexture,
+            texture: Self.baseBodyTexture,
             size: GameConfig.tileNodeSize,
             moveSpeed: GameConfig.playerSpeed,
             hp: GameConfig.playerHitPoints,
@@ -44,10 +51,7 @@ final class PlayerTank: Tank {
         )
         self.position = position
         applyFirepowerStats()
-        let frames = SpriteProvider.playerFrames()
-        if !frames.isEmpty {
-            applyTrackFrames(frames, cacheKey: "player")
-        }
+        refreshAppearance()
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -74,6 +78,7 @@ final class PlayerTank: Tank {
         isHidden = false
         alpha = 1
         resetPowerUps()
+        refreshAppearance()
     }
 
     private func applyFirepowerStats() {
@@ -81,16 +86,43 @@ final class PlayerTank: Tank {
         canBreakSteel = firepower >= GameConfig.playerFirepowerBreakSteel
     }
 
+    /// 火力 → 炮管热红色；护盾 → 外壳钢蓝。贴图四态由 atlas 预先生成。
+    func refreshAppearance() {
+        let frames = SpriteProvider.playerFrames(firepower: firepower, shielded: hasShield)
+        let key = "player-fp\(firepower > 0 ? 1 : 0)-sh\(hasShield ? 1 : 0)"
+        if frames.isEmpty {
+            let moving = action(forKey: GameConfig.trackActionKey) != nil
+            presentMotion(false)
+            texture = Self.placeholderTexture(firepower: firepower, shielded: hasShield)
+            texture?.filteringMode = .nearest
+            trackFrames = []
+            trackCacheKey = key
+            if moving { presentMotion(true) }
+            return
+        }
+        replaceTrackFrames(frames, cacheKey: key)
+    }
+
     static func bulletSpeed(for firepower: Int) -> CGFloat {
         firepower == 0 ? GameConfig.playerBulletSpeedLevel0 : GameConfig.playerBulletSpeedUpgraded
     }
 
-    private static let bodyTexture: SKTexture = {
-        TankPlaceholderTextures.make(
-            body: GameConfig.playerColor,
-            track: GameConfig.tankBarrelColor,
-            barrel: .white
-        )
+    private static let baseBodyTexture: SKTexture = {
+        placeholderTexture(firepower: 0, shielded: false)
     }()
-}
 
+    private static func placeholderTexture(firepower: Int, shielded: Bool) -> SKTexture {
+        let body: SKColor
+        let shade: SKColor
+        let barrel: SKColor
+        if shielded {
+            body = GameConfig.playerShieldBodyColor
+            shade = GameConfig.playerShieldShadeColor
+        } else {
+            body = GameConfig.playerColor
+            shade = GameConfig.playerShadeColor
+        }
+        barrel = firepower > 0 ? GameConfig.playerBarrelPoweredColor : shade
+        return TankPlaceholderTextures.make(body: body, track: shade, barrel: barrel)
+    }
+}

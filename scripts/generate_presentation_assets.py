@@ -79,70 +79,55 @@ def write_atlas(name: str, pixels: list[list[str]]) -> None:
     write_png(ATLAS / f"{name}.png", pixels)
 
 
-def tank(body: str, track: str, barrel: str, tread: str, frame: int) -> list[list[str]]:
-    """16x16 朝上。黑描边 + 独立炮塔 + 3px 履带；两帧只错履带条纹。"""
-    # 只靠条纹相位区分帧，不再对调颜色，避免相位与对调互相抵消
+def tank(body: str, shade: str, barrel: str, frame: int) -> list[list[str]]:
+    """16x16 朝上。车体只用 body/shade 两色；barrel 专供炮管（火力道具可变色）。
+    黑描边不算进调色板。取消白炮口，避免黄白灰黑挤在一起。
+    """
     rows = [["."] * 16 for _ in range(16)]
 
     def put(x: int, y: int, color: str) -> None:
         if 0 <= x < 16 and 0 <= y < 16:
             rows[y][x] = color
 
-    def track_color(x: int, y: int) -> str:
-        # 横向条纹 + 帧偏移，比棋盘格更像履带，也更少噪点
-        phase = y + frame
-        return tread if phase % 2 == 0 else track
+    def track_color(y: int) -> str:
+        # 横向条纹只用 body/shade，两帧错一格
+        return shade if (y + frame) % 2 == 0 else body
 
-    # --- 履带（左右各 3px，y=5..14）---
+    # 履带：左右各 3px
     for y in range(5, 15):
         for x in (1, 2, 3, 12, 13, 14):
-            put(x, y, track_color(x, y))
+            put(x, y, track_color(y))
 
-    # --- 车体 ---
+    # 车体
     for y in range(6, 14):
         for x in range(4, 12):
             put(x, y, body)
-    for x in range(5, 11):  # 前端收窄一格
+    for x in range(5, 11):
         put(x, 5, body)
 
-    # 体积：左上高光、右下暗部
-    put(4, 6, barrel)
-    put(5, 6, barrel)
-    put(10, 12, track)
-    put(11, 12, track)
-    put(10, 13, track)
-    put(11, 13, track)
+    # 体积：暗部用 shade，不再借用炮管色/白色
+    put(10, 12, shade)
+    put(11, 12, shade)
+    put(10, 13, shade)
+    put(11, 13, shade)
 
-    # --- 炮塔（压在车体中央）---
+    # 炮塔用 shade，舱盖用黑
     for y in range(8, 12):
         for x in range(5, 11):
-            put(x, y, track)
-    put(5, 8, barrel)
-    put(6, 8, barrel)
-    # 舱盖
+            put(x, y, shade)
     put(7, 9, "0")
     put(8, 9, "0")
     put(7, 10, "0")
     put(8, 10, "0")
 
-    # --- 炮管（y=0..4，避免与车头抢像素）---
-    for y in range(0, 5):
+    # 炮管通体 barrel，两侧黑描边；炮口不再刷白
+    for y in range(0, 6):
         put(5, y, "0")
         put(10, y, "0")
         for x in range(6, 10):
             put(x, y, barrel)
-    # 炮口高光
-    for x in range(6, 10):
-        put(x, 0, "1")
-    put(5, 0, barrel)
-    put(10, 0, barrel)
-    # 炮管根部接到炮塔
-    for x in range(6, 10):
-        put(x, 5, barrel)
-    put(5, 5, "0")
-    put(10, 5, "0")
 
-    # --- 黑描边：只描轮廓外一圈空像素，不改已有颜色 ---
+    # 黑描边
     opaque = {(x, y) for y in range(16) for x in range(16) if rows[y][x] != "."}
     for x, y in list(opaque):
         for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
@@ -168,8 +153,6 @@ def boss(size: int, body: str, dark: str, accent: str, frame: int) -> list[list[
             if y < barrel_h and left <= x <= right:
                 if x in (left, right):
                     row.append("0")
-                elif y <= 1:
-                    row.append("1")
                 else:
                     row.append(accent)
             elif x < 4 or x >= size - 4 or y >= size - 4:
@@ -427,23 +410,31 @@ def main() -> None:
     for index in range(5):
         add(f"explosion_{index}", explosion(index))
 
+    # 每辆坦克只用 body/shade 两色；炮管默认同 shade，火力强化后换成热红。
+    # 护盾把车体外壳换成钢蓝两色。黑描边不计入调色板。
     tanks = {
-        "player": ("4", "5", "1", "3"),
-        "normal": ("2", "3", "1", "0"),
-        "fast": ("B", "C", "1", "D"),
-        "armored_green": ("9", "A", "8", "0"),
-        "armored_yellow": ("4", "5", "1", "0"),
-        "armored_gray": ("3", "2", "1", "0"),
-        "armored_red": ("E", "7", "1", "0"),
+        # 玩家：金 + 橙
+        "player": ("4", "5", "5"),
+        "player_fire": ("4", "5", "E"),
+        "player_shield": ("B", "C", "C"),
+        "player_fire_shield": ("B", "C", "E"),
+        # 敌人：各类型内部两色统一，炮管不再刷白
+        "normal": ("2", "3", "3"),
+        "fast": ("B", "C", "C"),
+        "armored_green": ("9", "A", "A"),
+        "armored_yellow": ("4", "5", "5"),
+        "armored_gray": ("3", "0", "0"),
+        "armored_red": ("E", "7", "7"),
     }
     for name, colors in tanks.items():
         add(f"tank_{name}_0", tank(*colors, 0))
         add(f"tank_{name}_1", tank(*colors, 1))
 
-    add("boss_mini_0", boss(32, "E", "7", "5", 0))
-    add("boss_mini_1", boss(32, "E", "7", "5", 1))
-    add("boss_final_0", boss(48, "E", "7", "F", 0))
-    add("boss_final_1", boss(48, "E", "7", "F", 1))
+    # Boss：红 + 暗红，炮管同暗红（去掉白尖/紫尖）
+    add("boss_mini_0", boss(32, "E", "7", "7", 0))
+    add("boss_mini_1", boss(32, "E", "7", "7", 1))
+    add("boss_final_0", boss(48, "E", "7", "7", 0))
+    add("boss_final_1", boss(48, "E", "7", "7", 1))
 
     add("powerup_star", powerup("4", "S"))
     add("powerup_helmet", powerup("2", "H"))
@@ -454,7 +445,7 @@ def main() -> None:
 
     write_atlas_contents(names)
 
-    icon = scale(tank("4", "5", "6", "3", 0), 64)
+    icon = scale(tank("4", "5", "5", 0), 64)
     write_png(ICON / "AppIcon.png", icon)
     (ICON / "Contents.json").write_text(
         """{
@@ -469,7 +460,7 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    logo = scale(tank("4", "5", "6", "3", 0), 8)
+    logo = scale(tank("4", "5", "5", 0), 8)
     write_png(LAUNCH / "LaunchLogo.png", logo)
     (LAUNCH / "Contents.json").write_text(
         """{

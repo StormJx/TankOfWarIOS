@@ -131,10 +131,11 @@ class BossTank: EnemyTank {
 
     static func bodyTexture(side: CGFloat) -> SKTexture {
         if let cached = textureCache[side] { return cached }
+        let shade = GameConfig.bossColor.adjustingBrightness(by: GameConfig.enemyBarrelDarkenFactor)
         let texture = TankPlaceholderTextures.make(
             body: GameConfig.bossColor,
-            track: GameConfig.bossColor.adjustingBrightness(by: GameConfig.enemyBarrelDarkenFactor),
-            barrel: .white,
+            track: shade,
+            barrel: shade,
             side: side
         )
         textureCache[side] = texture

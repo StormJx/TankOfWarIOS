@@ -41,11 +41,10 @@ enum TankPlaceholderTextures {
             fill(rect(5, 8, 6, 4), track)
             // 舱盖
             fill(rect(7, 9, 2, 2), .black)
-            // 炮管
+            // 炮管：通体 barrel，不再刷白炮口，保持 1～2 色调色板干净
             fill(rect(5, 0, 1, 6), .black)
             fill(rect(10, 0, 1, 6), .black)
             fill(rect(6, 0, 4, 6), barrel)
-            fill(rect(6, 0, 4, 1), .white)
             // 外轮廓
             cg.setStrokeColor(SKColor.black.cgColor)
             cg.setLineWidth(px)

@@ -117,6 +117,24 @@ struct PlayerControlTests {
         #expect(tank.hp == hp)
     }
 
+    @Test("火力改炮管贴图、护盾改外壳贴图，缓存键跟着变")
+    func powerUpsSwapAppearanceKeys() {
+        let tank = PlayerTank(at: .zero)
+        let baseKey = tank.trackCacheKey
+
+        tank.firepower = 1
+        #expect(tank.trackCacheKey.contains("fp1"))
+        #expect(tank.trackCacheKey != baseKey)
+
+        tank.hasShield = true
+        #expect(tank.trackCacheKey.contains("sh1"))
+        #expect(tank.trackCacheKey.contains("fp1"))
+
+        tank.resetPowerUps()
+        #expect(tank.trackCacheKey.contains("fp0"))
+        #expect(tank.trackCacheKey.contains("sh0"))
+    }
+
     @Test("开火消耗冷却，冷却未转好时不能连发")
     func fireHonorsCooldown() {
         let tank = PlayerTank(at: .zero)

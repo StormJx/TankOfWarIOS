@@ -150,10 +150,11 @@ class EnemyTank: Tank {
     }
 
     private static func makeBodyTexture(color: SKColor) -> SKTexture {
-        TankPlaceholderTextures.make(
+        let shade = color.adjustingBrightness(by: GameConfig.enemyBarrelDarkenFactor)
+        return TankPlaceholderTextures.make(
             body: color,
-            track: color.adjustingBrightness(by: GameConfig.enemyBarrelDarkenFactor),
-            barrel: .white
+            track: shade,
+            barrel: shade
         )
     }
 }

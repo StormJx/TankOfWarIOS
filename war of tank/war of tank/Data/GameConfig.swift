@@ -133,7 +133,8 @@ enum GameConfig {
     static let joystickLineWidth: CGFloat = 2
     static let fireButtonLineWidth: CGFloat = 2
 
-    static let tankBarrelColor = SKColor(red: 0.82, green: 0.62, blue: 0.08, alpha: 1)
+    /// 兼容旧占位；新逻辑用 playerShadeColor / playerBarrelPoweredColor
+    static let tankBarrelColor = SKColor(red: 0.99, green: 0.60, blue: 0.22, alpha: 1)
     static let bulletColor = SKColor(white: 0.95, alpha: 1)
 
     // MARK: - 敌人（见 GAME_DESIGN 第 4 节）
@@ -347,7 +348,14 @@ enum GameConfig {
     static let battlefieldColor = SKColor.black
     /// 菜单/结算用 NES 风深蓝，和战场纯黑分开，避免整屏死黑
     static let menuBackgroundColor = SKColor(red: 0.07, green: 0.14, blue: 0.28, alpha: 1)
-    static let playerColor = SKColor.yellow
+    /// 玩家车体主色（金）；暗部/履带用 playerShadeColor，两者构成基础两色调色板
+    static let playerColor = SKColor(red: 0.97, green: 0.85, blue: 0.47, alpha: 1)
+    static let playerShadeColor = SKColor(red: 0.99, green: 0.60, blue: 0.22, alpha: 1)
+    /// 火力强化后的炮管色（热红），只改炮管不改车体
+    static let playerBarrelPoweredColor = SKColor(red: 0.97, green: 0.22, blue: 0.0, alpha: 1)
+    /// 护盾外壳：钢蓝两色，替换车体/履带主色
+    static let playerShieldBodyColor = SKColor(red: 0.24, green: 0.74, blue: 0.99, alpha: 1)
+    static let playerShieldShadeColor = SKColor(red: 0.0, green: 0.47, blue: 0.97, alpha: 1)
     static let hudPlaceholderColor = SKColor(white: 0.20, alpha: 1)
     static let controlAreaPlaceholderColor = SKColor(white: 0.12, alpha: 1)
     static let placeholderLabelColor = SKColor(white: 0.55, alpha: 1)

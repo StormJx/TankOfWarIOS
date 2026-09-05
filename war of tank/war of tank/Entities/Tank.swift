@@ -187,6 +187,16 @@ class Tank: SKSpriteNode {
         }
     }
 
+    /// 换装贴图时若正在履带动画，先停再按新帧重启，避免旧 SKAction 继续刷旧纹理
+    func replaceTrackFrames(_ frames: [SKTexture], cacheKey: String) {
+        let moving = isPresentingMotion
+        presentMotion(false)
+        applyTrackFrames(frames, cacheKey: cacheKey)
+        if moving {
+            presentMotion(true)
+        }
+    }
+
     func presentMotion(_ moving: Bool) {
         guard moving != isPresentingMotion else { return }
         isPresentingMotion = moving
