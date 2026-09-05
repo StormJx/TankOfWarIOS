@@ -262,6 +262,11 @@ final class GameScene: SKScene {
         }
         if added > live {
             PresentationCues.fired()
+            EffectFactory.muzzleFlash(
+                at: tank.muzzlePoint(along: tank.direction.vector),
+                color: tank.muzzleFlashColor,
+                in: self
+            )
         }
     }
 
@@ -329,6 +334,8 @@ final class GameScene: SKScene {
             return true
 
         case .tank(let tank):
+            let hpBefore = tank.hp
+            let shieldWasUp = (tank as? PlayerTank)?.hasShield == true
             tank.takeDamage()
             if tank.hp <= 0 {
                 if !(tank is BossTank) {
@@ -341,6 +348,7 @@ final class GameScene: SKScene {
             } else {
                 EffectFactory.hitSpark(at: bullet.position, in: self)
                 PresentationCues.smallExplosion()
+                EffectFactory.hitFlash(on: tank, shielded: shieldWasUp && tank.hp == hpBefore)
             }
             bullet.markDestroyed()
             return true
@@ -494,6 +502,7 @@ final class GameScene: SKScene {
 
     private func detonateGrenade() {
         for enemy in enemies where enemy.hp > 0 {
+            let hpBefore = enemy.hp
             if enemy.isBoss {
                 enemy.takeDamage(GameConfig.grenadeBossDamage)
             } else if !enemy.isInvincible {
@@ -503,6 +512,9 @@ final class GameScene: SKScene {
                 EffectFactory.bigExplosion(at: enemy.position, in: self)
             } else {
                 EffectFactory.hitSpark(at: enemy.position, in: self)
+                if enemy.hp < hpBefore {
+                    EffectFactory.hitFlash(on: enemy, shielded: false)
+                }
             }
         }
     }
@@ -601,11 +613,15 @@ final class GameScene: SKScene {
             }
         }
         if let hit = result.hitPlayer {
+            let hpBefore = hit.hp
+            let shieldWasUp = (hit as? PlayerTank)?.hasShield == true
             hit.takeDamage(max(hit.hp, 1))
             if hit.hp <= 0 {
                 EffectFactory.bigExplosion(at: hit.position, in: self)
                 EffectFactory.shake(scene: self)
                 handleTankDestroyed(hit)
+            } else {
+                EffectFactory.hitFlash(on: hit, shielded: shieldWasUp && hit.hp == hpBefore)
             }
         }
         if result.hitSolid {

@@ -71,6 +71,10 @@ class BossTank: EnemyTank {
 
     var fireCooldownForPhase: TimeInterval { fireCooldown }
 
+    override var muzzleFlashColor: SKColor {
+        GameConfig.bossColor.adjustingBrightness(by: GameConfig.enemyBarrelDarkenFactor)
+    }
+
     override func takeDamage(_ amount: Int = 1) {
         super.takeDamage(amount)
         syncPhase()

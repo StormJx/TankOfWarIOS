@@ -113,6 +113,9 @@ class Tank: SKSpriteNode {
 
     var maxSimultaneousBullets: Int { 1 }
 
+    /// 炮口闪颜色跟当前炮管：基础暗部 / 火力热红，由子类覆盖
+    var muzzleFlashColor: SKColor { GameConfig.playerShadeColor }
+
     var footprintTiles: Int {
         max(1, Int((size.width / GameConfig.tileSize).rounded()))
     }

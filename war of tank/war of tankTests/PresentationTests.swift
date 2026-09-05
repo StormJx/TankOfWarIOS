@@ -76,4 +76,44 @@ struct PresentationTests {
         #expect(GameConfig.tileNodeSize == CGSize(width: GameConfig.tileSize, height: GameConfig.tileSize))
     }
 
+    @Test("炮口闪挂在 effect 层并带自删动作")
+    func muzzleFlashIsTransientEffect() {
+        let scene = SKScene(size: GameConfig.sceneSize)
+        EffectFactory.muzzleFlash(at: CGPoint(x: 16, y: 16), color: GameConfig.playerShadeColor, in: scene)
+        let flash = scene.children.first { $0.zPosition == GameConfig.Layer.effect }
+        #expect(flash != nil)
+        #expect(flash?.hasActions() == true)
+        #expect(flash?.position == CGPoint(x: 16, y: 16))
+    }
+
+    @Test("受击闪白会自删；无敌时不叠")
+    func hitFlashSkipsInvincibleAndRemovesItself() {
+        let tank = PlayerTank(at: .zero)
+        EffectFactory.hitFlash(on: tank, shielded: false)
+        let overlay = tank.childNode(withName: GameConfig.hitFlashNodeName)
+        #expect(overlay != nil)
+        #expect(overlay?.hasActions() == true)
+        #expect(overlay?.zPosition == GameConfig.tankOverlayZ)
+
+        tank.childNode(withName: GameConfig.hitFlashNodeName)?.removeFromParent()
+        tank.isInvincible = true
+        EffectFactory.hitFlash(on: tank, shielded: false)
+        #expect(tank.childNode(withName: GameConfig.hitFlashNodeName) == nil)
+    }
+
+    @Test("护盾挡住时走钢蓝闪而不是白闪")
+    func shieldHitFlashUsesSteelBlue() {
+        let tank = PlayerTank(at: .zero)
+        EffectFactory.hitFlash(on: tank, shielded: true)
+        let overlay = tank.childNode(withName: GameConfig.hitFlashNodeName) as? SKSpriteNode
+        #expect(overlay != nil)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        overlay?.color.getRed(&r, green: &g, blue: &b, alpha: &a)
+        var er: CGFloat = 0, eg: CGFloat = 0, eb: CGFloat = 0, ea: CGFloat = 0
+        GameConfig.playerShieldBodyColor.getRed(&er, green: &eg, blue: &eb, alpha: &ea)
+        #expect(abs(r - er) < 0.01)
+        #expect(abs(g - eg) < 0.01)
+        #expect(abs(b - eb) < 0.01)
+    }
+
 }

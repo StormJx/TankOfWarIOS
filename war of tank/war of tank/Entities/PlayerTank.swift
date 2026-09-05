@@ -28,6 +28,10 @@ final class PlayerTank: Tank {
         }
     }
 
+    override var muzzleFlashColor: SKColor {
+        firepower > 0 ? GameConfig.playerBarrelPoweredColor : GameConfig.playerShadeColor
+    }
+
     override var maxSimultaneousBullets: Int {
         firepower >= GameConfig.playerFirepowerDualShot
             ? GameConfig.playerMaxBulletsHigh

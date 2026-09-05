@@ -348,6 +348,23 @@ enum GameConfig {
     static var sparkNodeSize: CGSize { CGSize(width: tileSize * 0.4, height: tileSize * 0.4) }
     static let sparkDuration: TimeInterval = 0.1
     static let invincibleFlickerPeriod: TimeInterval = 0.12
+    static let invincibleColorBlend: CGFloat = 0.7
+    static let invincibleTintRed = SKColor(red: 0.97, green: 0.22, blue: 0.16, alpha: 1)
+    static let invincibleTintBlue = SKColor(red: 0.24, green: 0.55, blue: 0.99, alpha: 1)
+    static let muzzleFlashFrames = 1
+    static let hitFlashFrames = 2
+    static var muzzleFlashDuration: TimeInterval {
+        TimeInterval(muzzleFlashFrames) / TimeInterval(preferredFramesPerSecond)
+    }
+    static var hitFlashDuration: TimeInterval {
+        TimeInterval(hitFlashFrames) / TimeInterval(preferredFramesPerSecond)
+    }
+    static var muzzleFlashNodeSize: CGSize { CGSize(width: 6, height: 6) }
+    static let muzzleFlashAlpha: CGFloat = 1
+    static let hitFlashAlpha: CGFloat = 0.85
+    static let hitFlashNodeName = "hitFlash"
+    /// 受击闪叠在车身贴图之上、阴影之上，仍低于 Layer.effect
+    static let tankOverlayZ: CGFloat = 1
     static let screenShakeDistance: CGFloat = 2
     static let screenShakeDuration: TimeInterval = 0.18
     static let gameOverLabelFontSize: CGFloat = 16

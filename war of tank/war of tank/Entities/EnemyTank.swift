@@ -56,6 +56,10 @@ class EnemyTank: Tank {
         isBoss ? GameConfig.bossMaxSimultaneousBullets : type.maxSimultaneousBullets
     }
 
+    override var muzzleFlashColor: SKColor {
+        Self.bodyColor(for: type, hp: hp).adjustingBrightness(by: GameConfig.enemyBarrelDarkenFactor)
+    }
+
     convenience init(type: EnemyType, at position: CGPoint) {
         self.init(
             type: type,
@@ -125,19 +129,17 @@ class EnemyTank: Tank {
         let key = "\(type)-\(hp)"
         if let cached = cache[key] { return cached }
 
-        let color: SKColor
-        switch type {
-        case .normal:
-            color = GameConfig.enemyNormalColor
-        case .fast:
-            color = GameConfig.enemyFastColor
-        case .armored:
-            color = armoredColor(hp: hp)
-        }
-
-        let texture = makeBodyTexture(color: color)
+        let texture = makeBodyTexture(color: bodyColor(for: type, hp: hp))
         cache[key] = texture
         return texture
+    }
+
+    static func bodyColor(for type: EnemyType, hp: Int) -> SKColor {
+        switch type {
+        case .normal: return GameConfig.enemyNormalColor
+        case .fast: return GameConfig.enemyFastColor
+        case .armored: return armoredColor(hp: hp)
+        }
     }
 
     static func armoredColor(hp: Int) -> SKColor {

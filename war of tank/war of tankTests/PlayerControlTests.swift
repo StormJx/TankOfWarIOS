@@ -118,6 +118,18 @@ struct PlayerControlTests {
         #expect(tank.hp == hp)
     }
 
+    @Test("火力改炮口闪颜色，护盾不改炮管色")
+    func firepowerChangesMuzzleFlashColor() {
+        let tank = PlayerTank(at: .zero)
+        #expect(colorsMatch(tank.muzzleFlashColor, GameConfig.playerShadeColor))
+        tank.firepower = 1
+        #expect(colorsMatch(tank.muzzleFlashColor, GameConfig.playerBarrelPoweredColor))
+        tank.hasShield = true
+        #expect(colorsMatch(tank.muzzleFlashColor, GameConfig.playerBarrelPoweredColor))
+        tank.resetPowerUps()
+        #expect(colorsMatch(tank.muzzleFlashColor, GameConfig.playerShadeColor))
+    }
+
     @Test("火力改炮管贴图、护盾改外壳贴图，缓存键跟着变")
     func powerUpsSwapAppearanceKeys() {
         let tank = PlayerTank(at: .zero)
@@ -197,5 +209,13 @@ struct PlayerControlTests {
         #expect(visual?.position == .zero)
         #expect(tank.position == origin)
         #expect(tank.collisionRect == box)
+    }
+
+    private func colorsMatch(_ lhs: SKColor, _ rhs: SKColor) -> Bool {
+        var lr: CGFloat = 0, lg: CGFloat = 0, lb: CGFloat = 0, la: CGFloat = 0
+        var rr: CGFloat = 0, rg: CGFloat = 0, rb: CGFloat = 0, ra: CGFloat = 0
+        lhs.getRed(&lr, green: &lg, blue: &lb, alpha: &la)
+        rhs.getRed(&rr, green: &rg, blue: &rb, alpha: &ra)
+        return abs(lr - rr) < 0.01 && abs(lg - rg) < 0.01 && abs(lb - rb) < 0.01 && abs(la - ra) < 0.01
     }
 }
