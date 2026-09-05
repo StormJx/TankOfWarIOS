@@ -55,6 +55,16 @@ enum GameConfig {
     /// 战场让位给它以保证 iPhone SE 上摇杆不被挤掉
     static let controlAreaMinHeight: CGFloat = 180
 
+    /// 把可用边长收到 sceneSide 的整数倍，避免像素坦克被非整数倍拉伸发糊。
+    /// 可用边长小于一倍逻辑尺寸时退回 available，优先保证完整可见。
+    static func integerScaledBattlefieldSide(available: CGFloat) -> CGFloat {
+        let logical = sceneSide
+        guard available > 0, logical > 0 else { return 0 }
+        let scale = max(1, floor(available / logical))
+        let snapped = scale * logical
+        return snapped <= available + 0.5 ? snapped : available
+    }
+
     // MARK: - 帧率
 
     static let preferredFramesPerSecond: Int = 60
@@ -123,7 +133,8 @@ enum GameConfig {
     static let joystickLineWidth: CGFloat = 2
     static let fireButtonLineWidth: CGFloat = 2
 
-    static let tankBarrelColor = SKColor(red: 0.82, green: 0.62, blue: 0.08, alpha: 1)
+    /// 兼容旧占位；新逻辑用 playerShadeColor / playerBarrelPoweredColor
+    static let tankBarrelColor = SKColor(red: 0.99, green: 0.60, blue: 0.22, alpha: 1)
     static let bulletColor = SKColor(white: 0.95, alpha: 1)
 
     // MARK: - 敌人（见 GAME_DESIGN 第 4 节）
@@ -299,7 +310,16 @@ enum GameConfig {
     static let scorePopupRise: CGFloat = 12
     static let stageBannerDuration: TimeInterval = 1.2
     static let stageBannerFontSize: CGFloat = 18
-    static let trackFrameDuration: TimeInterval = 0.08
+    /// 履带两帧切换间隔；略快一点，16px 坦克移动时条纹差才够明显
+    static let trackFrameDuration: TimeInterval = 0.06
+
+    // MARK: - 坦克阴影（贴地感，不参与碰撞）
+
+    static let tankShadowAlpha: CGFloat = 0.32
+    static let tankShadowScaleX: CGFloat = 0.92
+    static let tankShadowScaleY: CGFloat = 0.42
+    static let tankShadowOffsetY: CGFloat = -2
+    static let tankShadowColor = SKColor.black
     static let waterFrameDuration: TimeInterval = 0.28
     static let explosionFrameDuration: TimeInterval = 0.06
     static let explosionFrameCount = 5
@@ -328,7 +348,14 @@ enum GameConfig {
     static let battlefieldColor = SKColor.black
     /// 菜单/结算用 NES 风深蓝，和战场纯黑分开，避免整屏死黑
     static let menuBackgroundColor = SKColor(red: 0.07, green: 0.14, blue: 0.28, alpha: 1)
-    static let playerColor = SKColor.yellow
+    /// 玩家车体主色（金）；暗部/履带用 playerShadeColor，两者构成基础两色调色板
+    static let playerColor = SKColor(red: 0.97, green: 0.85, blue: 0.47, alpha: 1)
+    static let playerShadeColor = SKColor(red: 0.99, green: 0.60, blue: 0.22, alpha: 1)
+    /// 火力强化后的炮管色（热红），只改炮管不改车体
+    static let playerBarrelPoweredColor = SKColor(red: 0.97, green: 0.22, blue: 0.0, alpha: 1)
+    /// 护盾外壳：钢蓝两色，替换车体/履带主色
+    static let playerShieldBodyColor = SKColor(red: 0.24, green: 0.74, blue: 0.99, alpha: 1)
+    static let playerShieldShadeColor = SKColor(red: 0.0, green: 0.47, blue: 0.97, alpha: 1)
     static let hudPlaceholderColor = SKColor(white: 0.20, alpha: 1)
     static let controlAreaPlaceholderColor = SKColor(white: 0.12, alpha: 1)
     static let placeholderLabelColor = SKColor(white: 0.55, alpha: 1)

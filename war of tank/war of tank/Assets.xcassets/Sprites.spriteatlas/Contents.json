@@ -1,31 +1,19 @@
 {
   "images" : [
     {
-      "filename" : "tile_brick.png",
+      "filename" : "boss_final_0.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "tile_steel.png",
+      "filename" : "boss_final_1.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "tile_water_0.png",
+      "filename" : "boss_mini_0.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "tile_water_1.png",
-      "idiom" : "universal"
-    },
-    {
-      "filename" : "tile_grass.png",
-      "idiom" : "universal"
-    },
-    {
-      "filename" : "tile_ice.png",
-      "idiom" : "universal"
-    },
-    {
-      "filename" : "tile_base.png",
+      "filename" : "boss_mini_1.png",
       "idiom" : "universal"
     },
     {
@@ -53,43 +41,27 @@
       "idiom" : "universal"
     },
     {
-      "filename" : "tank_player_0.png",
+      "filename" : "powerup_grenade.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "tank_player_1.png",
+      "filename" : "powerup_helmet.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "tank_normal_0.png",
+      "filename" : "powerup_shovel.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "tank_normal_1.png",
+      "filename" : "powerup_star.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "tank_fast_0.png",
+      "filename" : "powerup_tank.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "tank_fast_1.png",
-      "idiom" : "universal"
-    },
-    {
-      "filename" : "tank_armored_green_0.png",
-      "idiom" : "universal"
-    },
-    {
-      "filename" : "tank_armored_green_1.png",
-      "idiom" : "universal"
-    },
-    {
-      "filename" : "tank_armored_yellow_0.png",
-      "idiom" : "universal"
-    },
-    {
-      "filename" : "tank_armored_yellow_1.png",
+      "filename" : "powerup_timer.png",
       "idiom" : "universal"
     },
     {
@@ -101,6 +73,14 @@
       "idiom" : "universal"
     },
     {
+      "filename" : "tank_armored_green_0.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tank_armored_green_1.png",
+      "idiom" : "universal"
+    },
+    {
       "filename" : "tank_armored_red_0.png",
       "idiom" : "universal"
     },
@@ -109,43 +89,87 @@
       "idiom" : "universal"
     },
     {
-      "filename" : "boss_mini_0.png",
+      "filename" : "tank_armored_yellow_0.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "boss_mini_1.png",
+      "filename" : "tank_armored_yellow_1.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "boss_final_0.png",
+      "filename" : "tank_fast_0.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "boss_final_1.png",
+      "filename" : "tank_fast_1.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "powerup_star.png",
+      "filename" : "tank_normal_0.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "powerup_helmet.png",
+      "filename" : "tank_normal_1.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "powerup_tank.png",
+      "filename" : "tank_player_0.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "powerup_grenade.png",
+      "filename" : "tank_player_1.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "powerup_timer.png",
+      "filename" : "tank_player_fire_0.png",
       "idiom" : "universal"
     },
     {
-      "filename" : "powerup_shovel.png",
+      "filename" : "tank_player_fire_1.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tank_player_fire_shield_0.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tank_player_fire_shield_1.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tank_player_shield_0.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tank_player_shield_1.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tile_base.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tile_brick.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tile_grass.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tile_ice.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tile_steel.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tile_water_0.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tile_water_1.png",
       "idiom" : "universal"
     }
   ],

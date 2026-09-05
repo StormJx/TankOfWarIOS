@@ -49,6 +49,23 @@ class Tank: SKSpriteNode {
         zPosition = GameConfig.Layer.tank
         zRotation = direction.zRotation
         self.texture?.filteringMode = .nearest
+        attachGroundShadow()
+    }
+
+    /// 椭圆软阴影挂在脚下；随车身旋转，只负责贴地感，不进碰撞盒
+    private func attachGroundShadow() {
+        let shadow = SKShapeNode(ellipseOf: CGSize(
+            width: size.width * GameConfig.tankShadowScaleX,
+            height: size.height * GameConfig.tankShadowScaleY
+        ))
+        shadow.fillColor = GameConfig.tankShadowColor
+        shadow.strokeColor = .clear
+        shadow.alpha = GameConfig.tankShadowAlpha
+        shadow.zPosition = -1
+        shadow.position = CGPoint(x: 0, y: GameConfig.tankShadowOffsetY)
+        // 阴影不吃点击，避免偶发挡住子弹判定以外的交互
+        shadow.isUserInteractionEnabled = false
+        addChild(shadow)
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -167,6 +184,16 @@ class Tank: SKSpriteNode {
         if let first = frames.first {
             texture = first
             texture?.filteringMode = .nearest
+        }
+    }
+
+    /// 换装贴图时若正在履带动画，先停再按新帧重启，避免旧 SKAction 继续刷旧纹理
+    func replaceTrackFrames(_ frames: [SKTexture], cacheKey: String) {
+        let moving = isPresentingMotion
+        presentMotion(false)
+        applyTrackFrames(frames, cacheKey: cacheKey)
+        if moving {
+            presentMotion(true)
         }
     }
 

@@ -57,4 +57,14 @@ struct PresentationTests {
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
         return r < 0.01 && g < 0.01 && b < 0.01 && a > 0.99
     }
+
+    @Test("战场边长按 sceneSide 整数倍吸附，过窄时退回可用边长")
+    func battlefieldSideSnapsToIntegerScale() {
+        let side = GameConfig.sceneSide
+        #expect(GameConfig.integerScaledBattlefieldSide(available: side * 2 + 30) == side * 2)
+        #expect(GameConfig.integerScaledBattlefieldSide(available: side * 1.2) == side)
+        #expect(GameConfig.integerScaledBattlefieldSide(available: side * 0.8) == side * 0.8)
+        #expect(GameConfig.integerScaledBattlefieldSide(available: 0) == 0)
+    }
+
 }

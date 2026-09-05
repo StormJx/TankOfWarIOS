@@ -9,7 +9,7 @@ import wave
 import zlib
 from pathlib import Path
 
-ROOT = Path("/Users/jixiang/war of tank/war of tank/war of tank")
+ROOT = Path(__file__).resolve().parents[1] / "war of tank" / "war of tank"
 ATLAS = ROOT / "Assets.xcassets" / "Sprites.spriteatlas"
 ICON = ROOT / "Assets.xcassets" / "AppIcon.appiconset"
 AUDIO = ROOT / "Resources" / "Audio"
@@ -79,69 +79,105 @@ def write_atlas(name: str, pixels: list[list[str]]) -> None:
     write_png(ATLAS / f"{name}.png", pixels)
 
 
-def tank(body: str, track: str, barrel: str, tread: str, frame: int) -> list[list[str]]:
-    """16x16 朝上。炮管加长加粗并加深色描边，朝向才能在 208 战场里看清。"""
-    t0, t1 = (tread, track) if frame == 0 else (track, tread)
-    outline = "0"
-    rows = []
-    for y in range(16):
-        row = ["."] * 16
-        if 6 <= y <= 14:
-            for x in (2, 3, 12, 13):
-                stripe = (x + y + frame) % 2 == 0
-                row[x] = t0 if stripe else t1
-            if y == 14:
-                for x in range(4, 12):
-                    row[x] = track
-        if 7 <= y <= 13:
-            for x in range(4, 12):
-                row[x] = body
-        elif y == 6:
-            for x in range(5, 11):
-                row[x] = body
-        if y == 9:
-            row[7] = barrel
-            row[8] = barrel
-        if y <= 5:
-            row[5] = outline
-            row[6] = barrel
-            row[7] = barrel
-            row[8] = barrel
-            row[9] = barrel
-            row[10] = outline
-            if y == 0:
-                row[5] = barrel
-                row[10] = barrel
-        rows.append(row)
+def tank(body: str, shade: str, barrel: str, frame: int) -> list[list[str]]:
+    """16x16 朝上。车体只用 body/shade 两色；barrel 专供炮管（火力道具可变色）。
+    黑描边不算进调色板。取消白炮口，避免黄白灰黑挤在一起。
+    """
+    rows = [["."] * 16 for _ in range(16)]
+
+    def put(x: int, y: int, color: str) -> None:
+        if 0 <= x < 16 and 0 <= y < 16:
+            rows[y][x] = color
+
+    def track_color(y: int) -> str:
+        # 横向条纹只用 body/shade，两帧错一格
+        return shade if (y + frame) % 2 == 0 else body
+
+    # 履带：左右各 3px
+    for y in range(5, 15):
+        for x in (1, 2, 3, 12, 13, 14):
+            put(x, y, track_color(y))
+
+    # 车体
+    for y in range(6, 14):
+        for x in range(4, 12):
+            put(x, y, body)
+    for x in range(5, 11):
+        put(x, 5, body)
+
+    # 体积：暗部用 shade，不再借用炮管色/白色
+    put(10, 12, shade)
+    put(11, 12, shade)
+    put(10, 13, shade)
+    put(11, 13, shade)
+
+    # 炮塔用 shade，舱盖用黑
+    for y in range(8, 12):
+        for x in range(5, 11):
+            put(x, y, shade)
+    put(7, 9, "0")
+    put(8, 9, "0")
+    put(7, 10, "0")
+    put(8, 10, "0")
+
+    # 炮管通体 barrel，两侧黑描边；炮口不再刷白
+    for y in range(0, 6):
+        put(5, y, "0")
+        put(10, y, "0")
+        for x in range(6, 10):
+            put(x, y, barrel)
+
+    # 黑描边
+    opaque = {(x, y) for y in range(16) for x in range(16) if rows[y][x] != "."}
+    for x, y in list(opaque):
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < 16 and 0 <= ny < 16 and rows[ny][nx] == ".":
+                rows[ny][nx] = "0"
+
     return rows
 
 
+
 def boss(size: int, body: str, dark: str, accent: str, frame: int) -> list[list[str]]:
+    """多 tile Boss：加宽履带、炮塔中心块、全身描边，体量比小坦克更清晰。"""
     mid = size // 2
     barrel_w = 6 if size >= 32 else 4
     barrel_h = max(8, size // 3)
     left = mid - barrel_w // 2
     right = mid + barrel_w // 2 - 1
-    rows = []
+    rows: list[list[str]] = []
     for y in range(size):
-        row = []
+        row: list[str] = []
         for x in range(size):
             if y < barrel_h and left <= x <= right:
                 if x in (left, right):
                     row.append("0")
-                elif y <= 1:
-                    row.append("1")
                 else:
                     row.append(accent)
-            elif x < 3 or x >= size - 3 or y >= size - 3:
-                stripe = (x + y + frame) % 2 == 0
+            elif x < 4 or x >= size - 4 or y >= size - 4:
+                stripe = ((x + y + frame * 2) // 2) % 2 == 0
                 row.append(dark if stripe else accent)
-            elif mid - 2 <= x <= mid + 1 and mid - 1 <= y <= mid + 1:
+            elif mid - 3 <= x <= mid + 2 and mid - 2 <= y <= mid + 2:
                 row.append(dark)
+            elif mid - 1 <= x <= mid and mid - 1 <= y <= mid:
+                row.append("0")
             else:
-                row.append(body)
+                # 轻微体积：右下偏暗
+                if x > mid + size // 6 and y > mid + size // 6:
+                    row.append(dark)
+                else:
+                    row.append(body)
         rows.append(row)
+
+    filled = [(x, y) for y in range(size) for x in range(size) if rows[y][x] != "."]
+    for x, y in filled:
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < size and 0 <= ny < size and rows[ny][nx] == ".":
+                rows[ny][nx] = "0"
     return rows
+
 
 
 def brick() -> list[list[str]]:
@@ -374,23 +410,31 @@ def main() -> None:
     for index in range(5):
         add(f"explosion_{index}", explosion(index))
 
+    # 每辆坦克只用 body/shade 两色；炮管默认同 shade，火力强化后换成热红。
+    # 护盾把车体外壳换成钢蓝两色。黑描边不计入调色板。
     tanks = {
-        "player": ("4", "5", "1", "3"),
-        "normal": ("2", "3", "1", "0"),
-        "fast": ("B", "C", "1", "D"),
-        "armored_green": ("9", "A", "8", "0"),
-        "armored_yellow": ("4", "5", "1", "0"),
-        "armored_gray": ("3", "2", "1", "0"),
-        "armored_red": ("E", "7", "1", "0"),
+        # 玩家：金 + 橙
+        "player": ("4", "5", "5"),
+        "player_fire": ("4", "5", "E"),
+        "player_shield": ("B", "C", "C"),
+        "player_fire_shield": ("B", "C", "E"),
+        # 敌人：各类型内部两色统一，炮管不再刷白
+        "normal": ("2", "3", "3"),
+        "fast": ("B", "C", "C"),
+        "armored_green": ("9", "A", "A"),
+        "armored_yellow": ("4", "5", "5"),
+        "armored_gray": ("3", "0", "0"),
+        "armored_red": ("E", "7", "7"),
     }
     for name, colors in tanks.items():
         add(f"tank_{name}_0", tank(*colors, 0))
         add(f"tank_{name}_1", tank(*colors, 1))
 
-    add("boss_mini_0", boss(32, "E", "7", "5", 0))
-    add("boss_mini_1", boss(32, "E", "7", "5", 1))
-    add("boss_final_0", boss(48, "E", "7", "F", 0))
-    add("boss_final_1", boss(48, "E", "7", "F", 1))
+    # Boss：红 + 暗红，炮管同暗红（去掉白尖/紫尖）
+    add("boss_mini_0", boss(32, "E", "7", "7", 0))
+    add("boss_mini_1", boss(32, "E", "7", "7", 1))
+    add("boss_final_0", boss(48, "E", "7", "7", 0))
+    add("boss_final_1", boss(48, "E", "7", "7", 1))
 
     add("powerup_star", powerup("4", "S"))
     add("powerup_helmet", powerup("2", "H"))
@@ -401,7 +445,7 @@ def main() -> None:
 
     write_atlas_contents(names)
 
-    icon = scale(tank("4", "5", "6", "3", 0), 64)
+    icon = scale(tank("4", "5", "5", 0), 64)
     write_png(ICON / "AppIcon.png", icon)
     (ICON / "Contents.json").write_text(
         """{
@@ -416,7 +460,7 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    logo = scale(tank("4", "5", "6", "3", 0), 8)
+    logo = scale(tank("4", "5", "5", 0), 8)
     write_png(LAUNCH / "LaunchLogo.png", logo)
     (LAUNCH / "Contents.json").write_text(
         """{

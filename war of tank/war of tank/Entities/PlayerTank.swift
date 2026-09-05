@@ -16,10 +16,17 @@ final class PlayerTank: Tank {
                 return
             }
             applyFirepowerStats()
+            refreshAppearance()
         }
     }
 
-    var hasShield = false
+    /// 头盔道具：外壳换成钢蓝两色；过期后由 GameScene 置回 false
+    var hasShield = false {
+        didSet {
+            guard oldValue != hasShield else { return }
+            refreshAppearance()
+        }
+    }
 
     override var maxSimultaneousBullets: Int {
         firepower >= GameConfig.playerFirepowerDualShot
@@ -34,7 +41,7 @@ final class PlayerTank: Tank {
         )
         self.firepower = startingFirepower
         super.init(
-            texture: Self.bodyTexture,
+            texture: Self.baseBodyTexture,
             size: GameConfig.tileNodeSize,
             moveSpeed: GameConfig.playerSpeed,
             hp: GameConfig.playerHitPoints,
@@ -44,10 +51,7 @@ final class PlayerTank: Tank {
         )
         self.position = position
         applyFirepowerStats()
-        let frames = SpriteProvider.playerFrames()
-        if !frames.isEmpty {
-            applyTrackFrames(frames, cacheKey: "player")
-        }
+        refreshAppearance()
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -74,6 +78,7 @@ final class PlayerTank: Tank {
         isHidden = false
         alpha = 1
         resetPowerUps()
+        refreshAppearance()
     }
 
     private func applyFirepowerStats() {
@@ -81,35 +86,43 @@ final class PlayerTank: Tank {
         canBreakSteel = firepower >= GameConfig.playerFirepowerBreakSteel
     }
 
+    /// 火力 → 炮管热红色；护盾 → 外壳钢蓝。贴图四态由 atlas 预先生成。
+    func refreshAppearance() {
+        let frames = SpriteProvider.playerFrames(firepower: firepower, shielded: hasShield)
+        let key = "player-fp\(firepower > 0 ? 1 : 0)-sh\(hasShield ? 1 : 0)"
+        if frames.isEmpty {
+            let moving = action(forKey: GameConfig.trackActionKey) != nil
+            presentMotion(false)
+            texture = Self.placeholderTexture(firepower: firepower, shielded: hasShield)
+            texture?.filteringMode = .nearest
+            trackFrames = []
+            trackCacheKey = key
+            if moving { presentMotion(true) }
+            return
+        }
+        replaceTrackFrames(frames, cacheKey: key)
+    }
+
     static func bulletSpeed(for firepower: Int) -> CGFloat {
         firepower == 0 ? GameConfig.playerBulletSpeedLevel0 : GameConfig.playerBulletSpeedUpgraded
     }
 
-    private static let bodyTexture: SKTexture = {
-        let side = GameConfig.tileSize
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
-        let image = renderer.image { context in
-            let cg = context.cgContext
-            cg.setFillColor(GameConfig.playerColor.cgColor)
-            cg.fill(CGRect(x: 0, y: 0, width: side, height: side))
-
-            // 炮管画在贴图上方，靠 zRotation 表示朝向，避免四个方向各做一张
-            let barrelWidth = side / 4
-            let barrelHeight = side / 2
-            cg.setFillColor(GameConfig.tankBarrelColor.cgColor)
-            cg.fill(
-                CGRect(
-                    x: (side - barrelWidth) / 2,
-                    y: 0,
-                    width: barrelWidth,
-                    height: barrelHeight
-                )
-            )
-        }
-        let texture = SKTexture(image: image)
-        texture.filteringMode = .nearest
-        return texture
+    private static let baseBodyTexture: SKTexture = {
+        placeholderTexture(firepower: 0, shielded: false)
     }()
+
+    private static func placeholderTexture(firepower: Int, shielded: Bool) -> SKTexture {
+        let body: SKColor
+        let shade: SKColor
+        let barrel: SKColor
+        if shielded {
+            body = GameConfig.playerShieldBodyColor
+            shade = GameConfig.playerShieldShadeColor
+        } else {
+            body = GameConfig.playerColor
+            shade = GameConfig.playerShadeColor
+        }
+        barrel = firepower > 0 ? GameConfig.playerBarrelPoweredColor : shade
+        return TankPlaceholderTextures.make(body: body, track: shade, barrel: barrel)
+    }
 }
