@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import argparse
 import math
 import struct
 import wave
@@ -80,8 +81,8 @@ def write_atlas(name: str, pixels: list[list[str]]) -> None:
 
 
 def tank(body: str, shade: str, barrel: str, frame: int) -> list[list[str]]:
-    """16x16 朝上。车体只用 body/shade 两色；barrel 专供炮管（火力道具可变色）。
-    黑描边不算进调色板。取消白炮口，避免黄白灰黑挤在一起。
+    """16x16 朝上。四边各留 1px 透明，节点仍按 16 显示，碰撞不必缩小。
+    车体只用 body/shade 两色；barrel 专供炮管。黑描边不算进调色板。
     """
     rows = [["."] * 16 for _ in range(16)]
 
@@ -90,49 +91,47 @@ def tank(body: str, shade: str, barrel: str, frame: int) -> list[list[str]]:
             rows[y][x] = color
 
     def track_color(y: int) -> str:
-        # 横向条纹只用 body/shade，两帧错一格
-        return shade if (y + frame) % 2 == 0 else body
+        # 2px 横带 + 整带换相，两帧一眼能看出在滚
+        return shade if ((y // 2) + frame) % 2 == 0 else body
 
-    # 履带：左右各 3px
-    for y in range(5, 15):
-        for x in (1, 2, 3, 12, 13, 14):
+    # 履带：左右各 3px，外圈留给透明/描边
+    for y in range(6, 15):
+        for x in (2, 3, 4, 11, 12, 13):
             put(x, y, track_color(y))
 
     # 车体
-    for y in range(6, 14):
-        for x in range(4, 12):
+    for y in range(7, 14):
+        for x in range(5, 11):
             put(x, y, body)
-    for x in range(5, 11):
-        put(x, 5, body)
+    for x in range(6, 10):
+        put(x, 6, body)
 
     # 体积：暗部用 shade，不再借用炮管色/白色
+    put(9, 12, shade)
     put(10, 12, shade)
-    put(11, 12, shade)
+    put(9, 13, shade)
     put(10, 13, shade)
-    put(11, 13, shade)
 
     # 炮塔用 shade，舱盖用黑
-    for y in range(8, 12):
-        for x in range(5, 11):
+    for y in range(9, 12):
+        for x in range(6, 10):
             put(x, y, shade)
-    put(7, 9, "0")
-    put(8, 9, "0")
     put(7, 10, "0")
     put(8, 10, "0")
 
-    # 炮管通体 barrel，两侧黑描边；炮口不再刷白
-    for y in range(0, 6):
+    # 炮管通体 barrel；顶端缩进 1px，子弹仍从 16 碰撞边打出
+    for y in range(1, 7):
         put(5, y, "0")
         put(10, y, "0")
         for x in range(6, 10):
             put(x, y, barrel)
 
-    # 黑描边
+    # 描边不写最外圈，保证上下左右各 1px 透明
     opaque = {(x, y) for y in range(16) for x in range(16) if rows[y][x] != "."}
     for x, y in list(opaque):
         for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
             nx, ny = x + dx, y + dy
-            if 0 <= nx < 16 and 0 <= ny < 16 and rows[ny][nx] == ".":
+            if 1 <= nx <= 14 and 1 <= ny <= 14 and rows[ny][nx] == ".":
                 rows[ny][nx] = "0"
 
     return rows
@@ -174,8 +173,14 @@ def boss(size: int, body: str, dark: str, accent: str, frame: int) -> list[list[
     for x, y in filled:
         for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
             nx, ny = x + dx, y + dy
-            if 0 <= nx < size and 0 <= ny < size and rows[ny][nx] == ".":
+            if 1 <= nx < size - 1 and 1 <= ny < size - 1 and rows[ny][nx] == ".":
                 rows[ny][nx] = "0"
+    # 最外 1px 留空，避免多 tile 车体和墙顶边
+    for i in range(size):
+        rows[0][i] = "."
+        rows[size - 1][i] = "."
+        rows[i][0] = "."
+        rows[i][size - 1] = "."
     return rows
 
 
@@ -387,7 +392,7 @@ def write_atlas_contents(names: list[str]) -> None:
     )
 
 
-def main() -> None:
+def main(skip_audio: bool = False) -> None:
     ATLAS.mkdir(parents=True, exist_ok=True)
     ICON.mkdir(parents=True, exist_ok=True)
     AUDIO.mkdir(parents=True, exist_ok=True)
@@ -471,6 +476,9 @@ def main() -> None:
         encoding="utf-8",
     )
 
+    if skip_audio:
+        return
+
     write_wav(AUDIO / "fire.wav", concat(tone(880, 0.04, 0.18), tone(440, 0.05, 0.12)))
     write_wav(AUDIO / "hit_brick.wav", concat(noise(0.06, 0.16), tone(180, 0.05, 0.12)))
     write_wav(AUDIO / "hit_steel.wav", concat(tone(1200, 0.04, 0.16, decay=True), tone(800, 0.05, 0.08)))
@@ -514,4 +522,10 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--skip-audio",
+        action="store_true",
+        help="只重绘精灵，避免无故改写 WAV",
+    )
+    main(skip_audio=parser.parse_args().skip_audio)

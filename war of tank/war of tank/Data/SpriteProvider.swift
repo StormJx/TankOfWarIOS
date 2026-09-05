@@ -105,6 +105,32 @@ enum SpriteProvider {
         return action
     }
 
+    /// 车身轻抖：挂在视觉子节点上，暂停随 SKScene 停
+    static func motionBobAction() -> SKAction {
+        bobAction
+    }
+
+    static func turnAction(to direction: Direction) -> SKAction {
+        SKAction.rotate(
+            toAngle: direction.zRotation,
+            duration: GameConfig.tankTurnDuration,
+            shortestUnitArc: true
+        )
+    }
+
+    private static let bobAction: SKAction = {
+        let quarter = GameConfig.tankBobPeriod / 4
+        let rise = GameConfig.tankBobAmplitude
+        return SKAction.repeatForever(
+            SKAction.sequence([
+                SKAction.moveBy(x: 0, y: rise, duration: quarter),
+                SKAction.moveBy(x: 0, y: -rise, duration: quarter),
+                SKAction.moveBy(x: 0, y: -rise, duration: quarter),
+                SKAction.moveBy(x: 0, y: rise, duration: quarter)
+            ])
+        )
+    }()
+
     static func applyNearest(_ texture: SKTexture?) -> SKTexture? {
         texture?.filteringMode = .nearest
         return texture

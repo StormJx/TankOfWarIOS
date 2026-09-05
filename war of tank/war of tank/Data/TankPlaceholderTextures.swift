@@ -21,6 +21,7 @@ enum TankPlaceholderTextures {
         let image = renderer.image { context in
             let cg = context.cgContext
             let px = side / 16
+            let inset = GameConfig.tankVisualInset
 
             func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
                 CGRect(x: x * px, y: y * px, width: w * px, height: h * px)
@@ -31,24 +32,29 @@ enum TankPlaceholderTextures {
                 cg.fill(r)
             }
 
-            // 履带
-            fill(rect(1, 5, 3, 10), track)
-            fill(rect(12, 5, 3, 10), track)
+            // 履带：2px 条纹、四边留 1 单位，和 atlas 第 0 帧对齐
+            for y in stride(from: 6, to: 15, by: 1) {
+                let stripe = (Int(y) / 2) % 2 == 0
+                let color = stripe ? track : body
+                fill(rect(2, y, 3, 1), color)
+                fill(rect(11, y, 3, 1), color)
+            }
             // 车体
-            fill(rect(4, 6, 8, 8), body)
-            fill(rect(5, 5, 6, 1), body)
+            fill(rect(5, 7, 6, 7), body)
+            fill(rect(6, 6, 4, 1), body)
             // 炮塔
-            fill(rect(5, 8, 6, 4), track)
+            fill(rect(6, 9, 4, 3), track)
             // 舱盖
-            fill(rect(7, 9, 2, 2), .black)
-            // 炮管：通体 barrel，不再刷白炮口，保持 1～2 色调色板干净
-            fill(rect(5, 0, 1, 6), .black)
-            fill(rect(10, 0, 1, 6), .black)
-            fill(rect(6, 0, 4, 6), barrel)
-            // 外轮廓
+            fill(rect(7, 10, 2, 2), .black)
+            // 炮管：通体 barrel，顶端缩进，不再刷白炮口
+            fill(rect(5, 1, 1, 6), .black)
+            fill(rect(10, 1, 1, 6), .black)
+            fill(rect(6, 1, 4, 6), barrel)
+            // 外轮廓停在 inset 内侧，避免和墙顶边
             cg.setStrokeColor(SKColor.black.cgColor)
             cg.setLineWidth(px)
-            cg.stroke(rect(1, 0, 14, 15).insetBy(dx: px / 2, dy: px / 2))
+            let outline = rect(inset, inset, 16 - inset * 2, 16 - inset * 2)
+            cg.stroke(outline.insetBy(dx: px / 2, dy: px / 2))
         }
         let texture = SKTexture(image: image)
         texture.filteringMode = .nearest

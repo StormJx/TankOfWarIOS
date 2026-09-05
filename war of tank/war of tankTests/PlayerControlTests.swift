@@ -4,6 +4,7 @@
 //
 
 import CoreGraphics
+import SpriteKit
 import Testing
 @testable import war_of_tank
 
@@ -143,5 +144,58 @@ struct PlayerControlTests {
         #expect(tank.fire() == nil)
         tank.updateTiming(dt: 1)
         #expect(tank.fire() != nil)
+    }
+
+    @Test("视觉缩进不改碰撞盒、占地和炮口碰撞边")
+    func visualInsetKeepsCollisionSemantics() {
+        let tank = PlayerTank(at: CGPoint(x: 80, y: 64))
+        #expect(tank.size == GameConfig.tileNodeSize)
+        #expect(tank.collisionRect.size == GameConfig.tileNodeSize)
+        #expect(tank.footprintTiles == 1)
+        #expect(tank.collisionRect.origin.x == tank.position.x - tank.size.width / 2)
+        #expect(tank.collisionRect.origin.y == tank.position.y - tank.size.height / 2)
+
+        let muzzle = tank.muzzlePoint(along: Direction.up.vector)
+        #expect(muzzle.x == tank.position.x)
+        #expect(muzzle.y == tank.position.y + tank.size.height / 2)
+    }
+
+    @Test("转向插值只改显示角，子弹仍走离散四向")
+    func turnInterpolationDoesNotSkewBullets() {
+        let scene = SKScene(size: GameConfig.sceneSize)
+        let tank = PlayerTank(at: CGPoint(x: 32, y: 32))
+        scene.addChild(tank)
+
+        tank.direction = .right
+        #expect(tank.action(forKey: GameConfig.tankTurnActionKey) != nil)
+        #expect(tank.direction == .right)
+
+        tank.zRotation = -.pi / 4
+        let bullet = tank.makeBullet()
+        #expect(bullet != nil)
+        #expect(bullet?.direction == .right)
+        #expect(bullet?.travel.dx == 1)
+        #expect(bullet?.travel.dy == 0)
+        #expect(bullet?.position.x == tank.position.x + tank.size.width / 2)
+        #expect(bullet?.position.y == tank.position.y)
+    }
+
+    @Test("停下立刻停履带和抖动，抖动不写进碰撞盒")
+    func stoppingMotionHaltsBobWithoutMovingCollision() {
+        let tank = PlayerTank(at: CGPoint(x: 48, y: 48))
+        let origin = tank.position
+        let box = tank.collisionRect
+
+        tank.presentMotion(true)
+        #expect(tank.isShowingMotion)
+        let visual = tank.childNode(withName: GameConfig.tankVisualNodeName)
+        #expect(visual?.action(forKey: GameConfig.tankBobActionKey) != nil)
+
+        tank.presentMotion(false)
+        #expect(tank.isShowingMotion == false)
+        #expect(visual?.action(forKey: GameConfig.tankBobActionKey) == nil)
+        #expect(visual?.position == .zero)
+        #expect(tank.position == origin)
+        #expect(tank.collisionRect == box)
     }
 }

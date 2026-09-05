@@ -313,6 +313,16 @@ enum GameConfig {
     /// 履带两帧切换间隔；略快一点，16px 坦克移动时条纹差才够明显
     static let trackFrameDuration: TimeInterval = 0.06
 
+    /// 精灵四边各留的透明像素；碰撞盒 / muzzle 仍按 tileSize
+    static let tankVisualInset: CGFloat = 1
+    /// 只作用在视觉子节点，幅度保持亚像素以免看起来像在跳格
+    static let tankBobAmplitude: CGFloat = 0.5
+    static let tankBobPeriod: TimeInterval = 0.1
+    static let tankTurnDuration: TimeInterval = 0.05
+    static let tankVisualNodeName = "tankVisual"
+    static let tankBobActionKey = "tankBob"
+    static let tankTurnActionKey = "tankTurn"
+
     // MARK: - 坦克阴影（贴地感，不参与碰撞）
 
     static let tankShadowAlpha: CGFloat = 0.32

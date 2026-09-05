@@ -74,6 +74,7 @@ final class PlayerTank: Tank {
         hp = GameConfig.playerHitPoints
         self.position = position
         direction = .up
+        presentFacing(.up, animated: false)
         commandedDirection = nil
         isHidden = false
         alpha = 1
@@ -91,10 +92,9 @@ final class PlayerTank: Tank {
         let frames = SpriteProvider.playerFrames(firepower: firepower, shielded: hasShield)
         let key = "player-fp\(firepower > 0 ? 1 : 0)-sh\(hasShield ? 1 : 0)"
         if frames.isEmpty {
-            let moving = action(forKey: GameConfig.trackActionKey) != nil
+            let moving = isShowingMotion
             presentMotion(false)
-            texture = Self.placeholderTexture(firepower: firepower, shielded: hasShield)
-            texture?.filteringMode = .nearest
+            displayTexture(Self.placeholderTexture(firepower: firepower, shielded: hasShield))
             trackFrames = []
             trackCacheKey = key
             if moving { presentMotion(true) }

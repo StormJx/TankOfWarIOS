@@ -67,4 +67,13 @@ struct PresentationTests {
         #expect(GameConfig.integerScaledBattlefieldSide(available: 0) == 0)
     }
 
+    @Test("坦克视觉缩进和抖动只是表现常量，碰撞仍按 tile")
+    func tankPresentationConstantsStayVisualOnly() {
+        #expect(GameConfig.tankVisualInset == 1)
+        #expect(GameConfig.tankBobAmplitude == 0.5)
+        #expect(GameConfig.tankBobPeriod == 0.1)
+        #expect(GameConfig.tankTurnDuration == 0.05)
+        #expect(GameConfig.tileNodeSize == CGSize(width: GameConfig.tileSize, height: GameConfig.tileSize))
+    }
+
 }
