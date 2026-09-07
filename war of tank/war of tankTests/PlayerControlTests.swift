@@ -184,12 +184,11 @@ struct PlayerControlTests {
 
         tank.zRotation = -.pi / 4
         let bullet = tank.makeBullet()
-        #expect(bullet != nil)
-        #expect(bullet?.direction == .right)
-        #expect(bullet?.travel.dx == 1)
-        #expect(bullet?.travel.dy == 0)
-        #expect(bullet?.position.x == tank.position.x + tank.size.width / 2)
-        #expect(bullet?.position.y == tank.position.y)
+        #expect(bullet.direction == .right)
+        #expect(bullet.travel.dx == 1)
+        #expect(bullet.travel.dy == 0)
+        #expect(bullet.position.x == tank.position.x + tank.size.width / 2)
+        #expect(bullet.position.y == tank.position.y)
     }
 
     @Test("停下立刻停履带和抖动，抖动不写进碰撞盒")

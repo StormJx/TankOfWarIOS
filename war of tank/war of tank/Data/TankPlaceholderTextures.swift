@@ -33,7 +33,7 @@ enum TankPlaceholderTextures {
             }
 
             // 履带：2px 条纹、四边留 1 单位，和 atlas 第 0 帧对齐
-            for y in stride(from: 6, to: 15, by: 1) {
+            for y in stride(from: CGFloat(6), to: 15, by: 1) {
                 let stripe = (Int(y) / 2) % 2 == 0
                 let color = stripe ? track : body
                 fill(rect(2, y, 3, 1), color)
