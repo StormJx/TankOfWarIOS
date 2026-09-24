@@ -116,4 +116,12 @@ struct PresentationTests {
         #expect(abs(b - eb) < 0.01)
     }
 
+    @Test("发布用调试开关默认全关")
+    func debugSwitchesStayOff() {
+        #expect(GameConfig.debugShowGrid == false)
+        #expect(GameConfig.debugShowStats == false)
+        #expect(GameConfig.debugTerrainShowcase == false)
+        #expect(GameConfig.debugStartingFirepower == 0)
+    }
+
 }

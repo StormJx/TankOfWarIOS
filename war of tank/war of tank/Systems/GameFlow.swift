@@ -87,6 +87,12 @@ final class GameFlow: ObservableObject {
         isPaused = false
     }
 
+    /// 进后台或来电中断只冻结对局；切回不能自动 resume，否则玩家会面对已经跑掉的战场。
+    func pauseWhenAppLeavesForeground() {
+        guard screen == .playing else { return }
+        isPaused = true
+    }
+
     private func beginPlay() {
         isPaused = false
         input.reset()

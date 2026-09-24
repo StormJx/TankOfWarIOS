@@ -321,7 +321,7 @@ final class GameScene: SKScene {
                 EffectFactory.bigExplosion(at: map.center(of: point), in: self)
                 PresentationCues.hitTerrain(.base)
                 bullet.markDestroyed()
-                finishGame(message: "GAME OVER")
+                finishGame()
                 return true
             }
             let destroyed = map.destroyTile(at: point, byLevel3Bullet: bullet.canBreakSteel)
@@ -379,7 +379,7 @@ final class GameScene: SKScene {
         lives -= 1
         refreshHUD()
         if lives <= 0 {
-            finishGame(message: "GAME OVER")
+            finishGame()
             return
         }
         respawnRemaining = GameConfig.playerRespawnDelay
@@ -657,10 +657,9 @@ final class GameScene: SKScene {
         }
     }
 
-    private func finishGame(message: String) {
+    private func finishGame() {
         guard !isGameOver else { return }
         isGameOver = true
-        print(message)
         PresentationCues.gameOver()
         flow?.handleDefeat()
     }

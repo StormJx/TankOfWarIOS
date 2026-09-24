@@ -8,6 +8,7 @@ import SwiftUI
 
 struct GameContainerView: View {
 
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var flow = GameFlow()
     @State private var overlayScene: SKScene = SKScene(size: GameConfig.sceneSize)
     @State private var gameScene: GameScene?
@@ -32,6 +33,12 @@ struct GameContainerView: View {
         }
         .onChange(of: flow.isPaused) { paused in
             applyPause(paused)
+        }
+        .onChange(of: scenePhase) { phase in
+            // 切回 .active 故意不 resume：保持暂停 overlay，等玩家自己按继续
+            if phase != .active {
+                flow.pauseWhenAppLeavesForeground()
+            }
         }
     }
 
