@@ -4,6 +4,7 @@
 //
 
 import SpriteKit
+import UIKit
 
 enum EffectFactory {
 
@@ -11,6 +12,7 @@ enum EffectFactory {
     private static let shakeKey = "screenShake"
     private static let chargeWarningKey = "chargeWarning"
     private static let flashKey = "whiteFlash"
+    private static let muzzleFlashName = "muzzleFlash"
 
     private static let smallExplosionAction: SKAction = {
         SKAction.group([
@@ -37,10 +39,55 @@ enum EffectFactory {
         let half = GameConfig.invincibleFlickerPeriod / 2
         return SKAction.repeatForever(
             SKAction.sequence([
-                SKAction.fadeAlpha(to: 0.25, duration: half),
-                SKAction.fadeAlpha(to: 1, duration: half)
+                SKAction.group([
+                    SKAction.colorize(
+                        with: GameConfig.invincibleTintRed,
+                        colorBlendFactor: GameConfig.invincibleColorBlend,
+                        duration: half
+                    ),
+                    SKAction.fadeAlpha(to: 0.55, duration: half)
+                ]),
+                SKAction.group([
+                    SKAction.colorize(
+                        with: GameConfig.invincibleTintBlue,
+                        colorBlendFactor: GameConfig.invincibleColorBlend,
+                        duration: half
+                    ),
+                    SKAction.fadeAlpha(to: 1, duration: half)
+                ])
             ])
         )
+    }()
+
+    private static let muzzleFlashAction: SKAction = {
+        SKAction.sequence([
+            SKAction.wait(forDuration: GameConfig.muzzleFlashDuration),
+            .removeFromParent()
+        ])
+    }()
+
+    private static let hitFlashAction: SKAction = {
+        SKAction.sequence([
+            SKAction.fadeOut(withDuration: GameConfig.hitFlashDuration),
+            .removeFromParent()
+        ])
+    }()
+
+    private static let muzzleFlashTexture: SKTexture = {
+        let side: CGFloat = 8
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
+        let image = renderer.image { context in
+            let cg = context.cgContext
+            cg.setFillColor(SKColor.white.cgColor)
+            cg.fill(CGRect(x: 3, y: 0, width: 2, height: 8))
+            cg.fill(CGRect(x: 0, y: 3, width: 8, height: 2))
+            cg.fill(CGRect(x: 2, y: 2, width: 4, height: 4))
+        }
+        let texture = SKTexture(image: image)
+        texture.filteringMode = .nearest
+        return texture
     }()
 
     private static let beaconBlinkAction: SKAction = {
@@ -129,14 +176,63 @@ enum EffectFactory {
         )
     }
 
+    static func muzzleFlash(at position: CGPoint, color: SKColor, in parent: SKNode) {
+        let node = SKSpriteNode(texture: muzzleFlashTexture, size: GameConfig.muzzleFlashNodeSize)
+        node.name = muzzleFlashName
+        node.color = color
+        node.colorBlendFactor = 1
+        node.alpha = GameConfig.muzzleFlashAlpha
+        node.zPosition = GameConfig.Layer.effect
+        node.position = position
+        node.texture?.filteringMode = .nearest
+        parent.addChild(node)
+        node.run(muzzleFlashAction.copy() as! SKAction)
+    }
+
+    static func hitFlash(on tank: Tank, shielded: Bool) {
+        // 无敌已经在红蓝闪，再叠白闪会搅成乱闪
+        guard !tank.isInvincible else { return }
+        tank.childNode(withName: GameConfig.hitFlashNodeName)?.removeFromParent()
+        let overlay = SKSpriteNode(
+            color: shielded ? GameConfig.playerShieldBodyColor : .white,
+            size: tank.size
+        )
+        overlay.name = GameConfig.hitFlashNodeName
+        overlay.alpha = GameConfig.hitFlashAlpha
+        overlay.zPosition = GameConfig.tankOverlayZ
+        overlay.isUserInteractionEnabled = false
+        tank.addChild(overlay)
+        overlay.run(hitFlashAction.copy() as! SKAction)
+    }
+
     static func applyInvincibleFlicker(to node: SKNode) {
-        node.removeAction(forKey: flickerKey)
-        node.run(flickerAction.copy() as! SKAction, withKey: flickerKey)
+        node.childNode(withName: GameConfig.hitFlashNodeName)?.removeFromParent()
+        let target = spriteTarget(for: node)
+        target.removeAction(forKey: flickerKey)
+        resetTint(target)
+        target.run(flickerAction.copy() as! SKAction, withKey: flickerKey)
     }
 
     static func stopFlicker(on node: SKNode) {
+        let target = spriteTarget(for: node)
+        target.removeAction(forKey: flickerKey)
+        resetTint(target)
         node.removeAction(forKey: flickerKey)
         node.alpha = 1
+    }
+
+    private static func spriteTarget(for node: SKNode) -> SKSpriteNode {
+        if let visual = node.childNode(withName: GameConfig.tankVisualNodeName) as? SKSpriteNode {
+            return visual
+        }
+        return node as? SKSpriteNode ?? SKSpriteNode()
+    }
+
+    private static func resetTint(_ node: SKSpriteNode) {
+        node.removeAction(forKey: flickerKey)
+        node.alpha = 1
+        node.color = .white
+        node.colorBlendFactor = 0
     }
 
     static func shake(scene: SKScene) {

@@ -33,8 +33,19 @@ enum SpriteProvider {
         }
     }
 
-    static func playerFrames() -> [SKTexture] {
-        frames("tank_player_0", "tank_player_1")
+    /// 火力强化改炮管色，护盾改外壳色；两态组合成 4 套贴图。
+    static func playerFrames(firepower: Int = 0, shielded: Bool = false) -> [SKTexture] {
+        let powered = firepower > 0
+        switch (powered, shielded) {
+        case (false, false):
+            return frames("tank_player_0", "tank_player_1")
+        case (true, false):
+            return frames("tank_player_fire_0", "tank_player_fire_1")
+        case (false, true):
+            return frames("tank_player_shield_0", "tank_player_shield_1")
+        case (true, true):
+            return frames("tank_player_fire_shield_0", "tank_player_fire_shield_1")
+        }
     }
 
     static func enemyFrames(type: EnemyType, hp: Int) -> [SKTexture] {
@@ -93,6 +104,32 @@ enum SpriteProvider {
         trackActions[cacheKey] = action
         return action
     }
+
+    /// 车身轻抖：挂在视觉子节点上，暂停随 SKScene 停
+    static func motionBobAction() -> SKAction {
+        bobAction
+    }
+
+    static func turnAction(to direction: Direction) -> SKAction {
+        SKAction.rotate(
+            toAngle: direction.zRotation,
+            duration: GameConfig.tankTurnDuration,
+            shortestUnitArc: true
+        )
+    }
+
+    private static let bobAction: SKAction = {
+        let quarter = GameConfig.tankBobPeriod / 4
+        let rise = GameConfig.tankBobAmplitude
+        return SKAction.repeatForever(
+            SKAction.sequence([
+                SKAction.moveBy(x: 0, y: rise, duration: quarter),
+                SKAction.moveBy(x: 0, y: -rise, duration: quarter),
+                SKAction.moveBy(x: 0, y: -rise, duration: quarter),
+                SKAction.moveBy(x: 0, y: rise, duration: quarter)
+            ])
+        )
+    }()
 
     static func applyNearest(_ texture: SKTexture?) -> SKTexture? {
         texture?.filteringMode = .nearest

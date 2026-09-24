@@ -8,6 +8,7 @@ import SwiftUI
 
 struct GameContainerView: View {
 
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var flow = GameFlow()
     @State private var overlayScene: SKScene = SKScene(size: GameConfig.sceneSize)
     @State private var gameScene: GameScene?
@@ -32,6 +33,12 @@ struct GameContainerView: View {
         }
         .onChange(of: flow.isPaused) { paused in
             applyPause(paused)
+        }
+        .onChange(of: scenePhase) { phase in
+            // 切回 .active 故意不 resume：保持暂停 overlay，等玩家自己按继续
+            if phase != .active {
+                flow.pauseWhenAppLeavesForeground()
+            }
         }
     }
 
@@ -62,9 +69,13 @@ struct GameContainerView: View {
         }
     }
 
+    /// 战场边长尽量落在 sceneSide 的整数倍上，避免 16px 坦克被非整数倍拉伸发糊
     private func battlefieldSide(in size: CGSize) -> CGFloat {
-        let heightForBattlefield = size.height - GameConfig.hudHeight - GameConfig.controlAreaMinHeight
-        return max(0, min(size.width, heightForBattlefield))
+        let available = max(
+            0,
+            min(size.width, size.height - GameConfig.hudHeight - GameConfig.controlAreaMinHeight)
+        )
+        return GameConfig.integerScaledBattlefieldSide(available: available)
     }
 
     private func battlefield(side: CGFloat) -> some View {

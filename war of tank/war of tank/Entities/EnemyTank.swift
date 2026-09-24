@@ -56,6 +56,10 @@ class EnemyTank: Tank {
         isBoss ? GameConfig.bossMaxSimultaneousBullets : type.maxSimultaneousBullets
     }
 
+    override var muzzleFlashColor: SKColor {
+        Self.bodyColor(for: type, hp: hp).adjustingBrightness(by: GameConfig.enemyBarrelDarkenFactor)
+    }
+
     convenience init(type: EnemyType, at position: CGPoint) {
         self.init(
             type: type,
@@ -125,19 +129,17 @@ class EnemyTank: Tank {
         let key = "\(type)-\(hp)"
         if let cached = cache[key] { return cached }
 
-        let color: SKColor
-        switch type {
-        case .normal:
-            color = GameConfig.enemyNormalColor
-        case .fast:
-            color = GameConfig.enemyFastColor
-        case .armored:
-            color = armoredColor(hp: hp)
-        }
-
-        let texture = makeBodyTexture(color: color)
+        let texture = makeBodyTexture(color: bodyColor(for: type, hp: hp))
         cache[key] = texture
         return texture
+    }
+
+    static func bodyColor(for type: EnemyType, hp: Int) -> SKColor {
+        switch type {
+        case .normal: return GameConfig.enemyNormalColor
+        case .fast: return GameConfig.enemyFastColor
+        case .armored: return armoredColor(hp: hp)
+        }
     }
 
     static func armoredColor(hp: Int) -> SKColor {
@@ -150,32 +152,15 @@ class EnemyTank: Tank {
     }
 
     private static func makeBodyTexture(color: SKColor) -> SKTexture {
-        let side = GameConfig.tileSize
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: side, height: side), format: format)
-        let image = renderer.image { context in
-            let cg = context.cgContext
-            cg.setFillColor(color.cgColor)
-            cg.fill(CGRect(x: 0, y: 0, width: side, height: side))
-
-            let barrelWidth = side / 4
-            let barrelHeight = side / 2
-            cg.setFillColor(color.adjustingBrightness(by: GameConfig.enemyBarrelDarkenFactor).cgColor)
-            cg.fill(
-                CGRect(
-                    x: (side - barrelWidth) / 2,
-                    y: 0,
-                    width: barrelWidth,
-                    height: barrelHeight
-                )
-            )
-        }
-        let texture = SKTexture(image: image)
-        texture.filteringMode = .nearest
-        return texture
+        let shade = color.adjustingBrightness(by: GameConfig.enemyBarrelDarkenFactor)
+        return TankPlaceholderTextures.make(
+            body: color,
+            track: shade,
+            barrel: shade
+        )
     }
 }
+
 
 private extension SKColor {
     func adjustingBrightness(by factor: CGFloat) -> SKColor {

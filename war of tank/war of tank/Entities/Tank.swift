@@ -10,7 +10,8 @@ class Tank: SKSpriteNode {
     var direction: Direction = .up {
         didSet {
             if oldValue != direction {
-                zRotation = direction.zRotation
+                // 未入场时直接对齐，避免出生/单测里空转 0.05s
+                presentFacing(direction, animated: parent != nil)
             }
         }
     }
@@ -30,6 +31,10 @@ class Tank: SKSpriteNode {
     var trackFrames: [SKTexture] = []
     var trackCacheKey = ""
     private var isPresentingMotion = false
+    /// 贴图和抖动挂在这里，父节点 position 只服务碰撞
+    private let visualNode = SKSpriteNode(color: .clear, size: .zero)
+
+    var isShowingMotion: Bool { isPresentingMotion }
 
     init(
         texture: SKTexture?,
@@ -45,10 +50,53 @@ class Tank: SKSpriteNode {
         self.fireCooldown = fireCooldown
         self.faction = faction
         self.bulletSpeed = bulletSpeed
-        super.init(texture: texture, color: .clear, size: size)
+        super.init(texture: nil, color: .clear, size: size)
         zPosition = GameConfig.Layer.tank
         zRotation = direction.zRotation
-        self.texture?.filteringMode = .nearest
+        configureVisual(texture)
+        attachGroundShadow()
+    }
+
+    private func configureVisual(_ texture: SKTexture?) {
+        visualNode.name = GameConfig.tankVisualNodeName
+        visualNode.size = size
+        visualNode.zPosition = 0
+        displayTexture(texture)
+        addChild(visualNode)
+    }
+
+    func displayTexture(_ texture: SKTexture?) {
+        visualNode.texture = texture
+        visualNode.texture?.filteringMode = .nearest
+    }
+
+    /// 插值只改显示角；commandedDirection / 子弹仍读离散 Direction
+    func presentFacing(_ facing: Direction, animated: Bool) {
+        removeAction(forKey: GameConfig.tankTurnActionKey)
+        if !animated {
+            zRotation = facing.zRotation
+            return
+        }
+        run(
+            SpriteProvider.turnAction(to: facing).copy() as! SKAction,
+            withKey: GameConfig.tankTurnActionKey
+        )
+    }
+
+    /// 椭圆软阴影挂在脚下；随车身旋转，只负责贴地感，不进碰撞盒
+    private func attachGroundShadow() {
+        let shadow = SKShapeNode(ellipseOf: CGSize(
+            width: size.width * GameConfig.tankShadowScaleX,
+            height: size.height * GameConfig.tankShadowScaleY
+        ))
+        shadow.fillColor = GameConfig.tankShadowColor
+        shadow.strokeColor = .clear
+        shadow.alpha = GameConfig.tankShadowAlpha
+        shadow.zPosition = -1
+        shadow.position = CGPoint(x: 0, y: GameConfig.tankShadowOffsetY)
+        // 阴影不吃点击，避免偶发挡住子弹判定以外的交互
+        shadow.isUserInteractionEnabled = false
+        addChild(shadow)
     }
 
     required init?(coder aDecoder: NSCoder) {
@@ -64,6 +112,9 @@ class Tank: SKSpriteNode {
     }
 
     var maxSimultaneousBullets: Int { 1 }
+
+    /// 炮口闪颜色跟当前炮管：基础暗部 / 火力热红，由子类覆盖
+    var muzzleFlashColor: SKColor { GameConfig.playerShadeColor }
 
     var footprintTiles: Int {
         max(1, Int((size.width / GameConfig.tileSize).rounded()))
@@ -165,21 +216,40 @@ class Tank: SKSpriteNode {
         trackFrames = frames
         trackCacheKey = cacheKey
         if let first = frames.first {
-            texture = first
-            texture?.filteringMode = .nearest
+            displayTexture(first)
+        }
+    }
+
+    /// 换装贴图时若正在履带动画，先停再按新帧重启，避免旧 SKAction 继续刷旧纹理
+    func replaceTrackFrames(_ frames: [SKTexture], cacheKey: String) {
+        let moving = isPresentingMotion
+        presentMotion(false)
+        applyTrackFrames(frames, cacheKey: cacheKey)
+        if moving {
+            presentMotion(true)
         }
     }
 
     func presentMotion(_ moving: Bool) {
         guard moving != isPresentingMotion else { return }
         isPresentingMotion = moving
-        if moving, trackFrames.count >= 2 {
-            run(SpriteProvider.trackAction(for: trackFrames, cacheKey: trackCacheKey).copy() as! SKAction, withKey: GameConfig.trackActionKey)
+        if moving {
+            if trackFrames.count >= 2 {
+                visualNode.run(
+                    SpriteProvider.trackAction(for: trackFrames, cacheKey: trackCacheKey).copy() as! SKAction,
+                    withKey: GameConfig.trackActionKey
+                )
+            }
+            visualNode.run(
+                SpriteProvider.motionBobAction().copy() as! SKAction,
+                withKey: GameConfig.tankBobActionKey
+            )
         } else {
-            removeAction(forKey: GameConfig.trackActionKey)
+            visualNode.removeAction(forKey: GameConfig.trackActionKey)
+            visualNode.removeAction(forKey: GameConfig.tankBobActionKey)
+            visualNode.position = .zero
             if let first = trackFrames.first {
-                texture = first
-                texture?.filteringMode = .nearest
+                displayTexture(first)
             }
         }
     }
