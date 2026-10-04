@@ -24,6 +24,10 @@ final class MenuScene: SKScene {
     }
 
     private func build() {
+        addChild(MenuWidgets.titleTank(at: CGPoint(
+            x: GameConfig.sceneSide / 2 - GameConfig.menuTitleTankOffset,
+            y: GameConfig.menuTitleY
+        )))
         addLabel(L10n.menuTitle, size: GameConfig.menuTitleFontSize, y: GameConfig.menuTitleY)
         addLabel(L10n.highScore(SaveManager.highScore), size: GameConfig.menuItemFontSize, y: GameConfig.menuScoreY)
         addButton(L10n.start, name: "start", x: GameConfig.sceneSide / 2, y: GameConfig.menuStartY)
@@ -67,32 +71,18 @@ final class MenuScene: SKScene {
     }
 
     private func addButton(_ text: String, name: String, x: CGFloat, y: CGFloat, locked: Bool = false) {
-        let hit = SKSpriteNode(color: SKColor(white: 1, alpha: 0.001), size: GameConfig.menuButtonHitSize)
-        hit.name = name
-        hit.position = CGPoint(x: x, y: y)
-        hit.zPosition = GameConfig.Layer.ui
-        addChild(hit)
-
-        let label = makeLabel(text, size: GameConfig.menuItemFontSize)
-        label.fontColor = locked ? GameConfig.menuLockedColor : GameConfig.hudTextColor
-        hit.addChild(label)
+        addChild(MenuWidgets.framedButton(
+            text: text,
+            name: name,
+            at: CGPoint(x: x, y: y),
+            locked: locked
+        ))
     }
 
     private func addLabel(_ text: String, size: CGFloat, y: CGFloat) {
-        let label = makeLabel(text, size: size)
+        let label = MenuWidgets.makeLabel(text, size: size)
         label.position = CGPoint(x: GameConfig.sceneSide / 2, y: y)
         addChild(label)
-    }
-
-    private func makeLabel(_ text: String, size: CGFloat) -> SKLabelNode {
-        let label = SKLabelNode(fontNamed: GameConfig.debugGridLabelFontName)
-        label.text = text
-        label.fontSize = size
-        label.fontColor = GameConfig.hudTextColor
-        label.horizontalAlignmentMode = .center
-        label.verticalAlignmentMode = .center
-        label.zPosition = GameConfig.Layer.ui
-        return label
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {

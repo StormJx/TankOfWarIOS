@@ -51,18 +51,19 @@ enum GameConfig {
 
     static let hudHeight: CGFloat = 44
 
-    /// 控制区高度下限：摇杆底盘直径 88 加射击键与上下留白后的底线，
-    /// 战场让位给它以保证 iPhone SE 上摇杆不被挤掉
-    static let controlAreaMinHeight: CGFloat = 180
+    /// 控制区高度下限：摇杆底盘加底部留白，战场让位以保证 iPhone SE 上摇杆不被挤掉
+    static let controlAreaMinHeight: CGFloat = 200
 
-    /// 把可用边长收到 sceneSide 的整数倍，避免像素坦克被非整数倍拉伸发糊。
-    /// 可用边长小于一倍逻辑尺寸时退回 available，优先保证完整可见。
-    static func integerScaledBattlefieldSide(available: CGFloat) -> CGFloat {
+    /// 按屏幕像素取整数倍：每个贴图像素落到整数个设备像素上，避免发糊。
+    /// displayScale 为 1 时等价于按点吸附。放不下一个整像素时退回 available。
+    static func integerScaledBattlefieldSide(available: CGFloat, displayScale: CGFloat = 1) -> CGFloat {
         let logical = sceneSide
-        guard available > 0, logical > 0 else { return 0 }
-        let scale = max(1, floor(available / logical))
-        let snapped = scale * logical
-        return snapped <= available + 0.5 ? snapped : available
+        guard available > 0, logical > 0, displayScale > 0 else { return 0 }
+        let availablePixels = floor(available * displayScale + 0.001)
+        let texels = floor(availablePixels / logical)
+        if texels < 1 { return available }
+        let side = texels * logical / displayScale
+        return side <= available + 0.5 ? side : available
     }
 
     // MARK: - 帧率
@@ -111,14 +112,17 @@ enum GameConfig {
 
     // MARK: - 虚拟摇杆与射击键
 
-    static let joystickBaseRadius: CGFloat = 44
-    static let joystickKnobRadius: CGFloat = 20
+    static let joystickBaseRadius: CGFloat = 56
+    static let joystickKnobRadius: CGFloat = 26
     static let joystickTouchRadiusMultiplier: CGFloat = 1.5
     static let joystickDeadZone: CGFloat = 8
 
     static var joystickTouchRadius: CGFloat { joystickBaseRadius * joystickTouchRadiusMultiplier }
 
-    static let fireButtonRadius: CGFloat = 32
+    static let fireButtonRadius: CGFloat = 46
+    static let fireButtonMarkWidth: CGFloat = 8
+    static let fireButtonMarkHeight: CGFloat = 16
+    static let fireButtonMarkOffsetY: CGFloat = 4
     static let fireButtonRepeatInterval: TimeInterval = 0.18
 
     static let controlSidePadding: CGFloat = 24
@@ -130,8 +134,10 @@ enum GameConfig {
     static let fireButtonStrokeColor = SKColor(red: 0.95, green: 0.42, blue: 0.32, alpha: 1)
     static let fireButtonPressedColor = SKColor(red: 0.95, green: 0.38, blue: 0.28, alpha: 1)
 
-    static let joystickLineWidth: CGFloat = 2
-    static let fireButtonLineWidth: CGFloat = 2
+    static let joystickLineWidth: CGFloat = 3
+    static let fireButtonLineWidth: CGFloat = 3
+    static let fireButtonMarkColor = SKColor(red: 1, green: 0.86, blue: 0.45, alpha: 1)
+    static let controlBottomPadding: CGFloat = 28
 
     /// 兼容旧占位；新逻辑用 playerShadeColor / playerBarrelPoweredColor
     static let tankBarrelColor = SKColor(red: 0.99, green: 0.60, blue: 0.22, alpha: 1)
@@ -294,7 +300,13 @@ enum GameConfig {
     static let menuStageColumnInset: CGFloat = 52
     static var menuStageLeftX: CGFloat { menuStageColumnInset }
     static var menuStageRightX: CGFloat { sceneSide - menuStageColumnInset }
-    static let menuButtonHitSize = CGSize(width: 88, height: 16)
+    static let menuButtonHitSize = CGSize(width: 96, height: 22)
+    static let menuButtonFrameSize = CGSize(width: 88, height: 18)
+    static let menuButtonLineWidth: CGFloat = 2
+    static let menuButtonFillColor = SKColor(red: 0.04, green: 0.08, blue: 0.16, alpha: 1)
+    static let menuButtonStrokeColor = SKColor(red: 0.95, green: 0.82, blue: 0.45, alpha: 1)
+    static let menuTitleTankOffset: CGFloat = 78
+    static let menuTitleTankScale: CGFloat = 2
     static let menuLockedColor = SKColor(white: 0.35, alpha: 1)
     static let overlayScrimColor = SKColor(white: 0, alpha: 0.55)
     static let pauseOverlaySpacing: CGFloat = 16
@@ -372,8 +384,9 @@ enum GameConfig {
 
     // MARK: - 占位配色（阶段 7 换成 texture atlas 时移除）
 
-    static let battlefieldColor = SKColor.black
-    /// 菜单/结算用 NES 风深蓝，和战场纯黑分开，避免整屏死黑
+    /// 空地用暗土色，纯黑会把砖和坦克吞掉
+    static let battlefieldColor = SKColor(red: 0.16, green: 0.14, blue: 0.09, alpha: 1)
+    /// 菜单/结算用 NES 风深蓝，和战场土色分开
     static let menuBackgroundColor = SKColor(red: 0.07, green: 0.14, blue: 0.28, alpha: 1)
     /// 玩家车体主色（金）；暗部/履带用 playerShadeColor，两者构成基础两色调色板
     static let playerColor = SKColor(red: 0.97, green: 0.85, blue: 0.47, alpha: 1)
@@ -383,8 +396,15 @@ enum GameConfig {
     /// 护盾外壳：钢蓝两色，替换车体/履带主色
     static let playerShieldBodyColor = SKColor(red: 0.24, green: 0.74, blue: 0.99, alpha: 1)
     static let playerShieldShadeColor = SKColor(red: 0.0, green: 0.47, blue: 0.97, alpha: 1)
-    static let hudPlaceholderColor = SKColor(white: 0.20, alpha: 1)
-    static let controlAreaPlaceholderColor = SKColor(white: 0.12, alpha: 1)
+    static let hudPlaceholderColor = SKColor(red: 0.12, green: 0.10, blue: 0.07, alpha: 1)
+    static let controlAreaPlaceholderColor = SKColor(red: 0.09, green: 0.08, blue: 0.06, alpha: 1)
+    static let hudIconSize: CGFloat = 14
+    static let hudIconSpacing: CGFloat = 4
+    static let hudGroupSpacing: CGFloat = 12
+    static let hudPauseReserve: CGFloat = 44
+    static let hudPauseHitPadding: CGFloat = 12
+    static let hudPipSize: CGFloat = 6
+    static let hudDimAlpha: CGFloat = 0.28
     static let placeholderLabelColor = SKColor(white: 0.55, alpha: 1)
 
     static let brickColor = SKColor(red: 0.62, green: 0.35, blue: 0.20, alpha: 1)

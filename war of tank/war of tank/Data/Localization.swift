@@ -76,6 +76,14 @@ enum L10n {
         return isMuted ? "SOUND OFF" : "SOUND ON"
     }
 
+    static func hudStage(_ stage: Int) -> String {
+        isChinese ? "关\(stage)" : "ST\(stage)"
+    }
+
+    static func hudScore(_ score: Int) -> String {
+        isChinese ? "分\(score)" : "SC\(score)"
+    }
+
     static func hudLine(
         lives: Int,
         stage: Int,

@@ -24,6 +24,24 @@ final class FireButton: SKNode {
         isUserInteractionEnabled = true
         zPosition = GameConfig.Layer.ui
         addChild(plate)
+        addMuzzleMark()
+    }
+
+    private func addMuzzleMark() {
+        let barrel = SKSpriteNode(
+            color: GameConfig.fireButtonMarkColor,
+            size: CGSize(width: GameConfig.fireButtonMarkWidth, height: GameConfig.fireButtonMarkHeight)
+        )
+        barrel.position = CGPoint(x: 0, y: GameConfig.fireButtonMarkOffsetY)
+        barrel.zPosition = 1
+        let mouth = SKSpriteNode(
+            color: GameConfig.fireButtonMarkColor,
+            size: CGSize(width: GameConfig.fireButtonMarkHeight, height: GameConfig.fireButtonMarkWidth)
+        )
+        mouth.position = CGPoint(x: 0, y: GameConfig.fireButtonMarkOffsetY + GameConfig.fireButtonMarkHeight / 2)
+        mouth.zPosition = 1
+        plate.addChild(barrel)
+        plate.addChild(mouth)
     }
 
     required init?(coder aDecoder: NSCoder) {

@@ -32,29 +32,13 @@ final class VictoryScene: SKScene {
     }
 
     private func addLabel(_ text: String, y: CGFloat, size: CGFloat) {
-        let label = SKLabelNode(fontNamed: GameConfig.debugGridLabelFontName)
-        label.text = text
-        label.fontSize = size
-        label.fontColor = GameConfig.hudTextColor
+        let label = MenuWidgets.makeLabel(text, size: size)
         label.position = CGPoint(x: GameConfig.sceneSide / 2, y: y)
-        label.zPosition = GameConfig.Layer.ui
         addChild(label)
     }
 
     private func addButton(_ text: String, y: CGFloat, name: String) {
-        let hit = SKSpriteNode(color: SKColor(white: 1, alpha: 0.001), size: GameConfig.menuButtonHitSize)
-        hit.name = name
-        hit.position = CGPoint(x: GameConfig.sceneSide / 2, y: y)
-        hit.zPosition = GameConfig.Layer.ui
-        addChild(hit)
-
-        let label = SKLabelNode(fontNamed: GameConfig.debugGridLabelFontName)
-        label.text = text
-        label.fontSize = GameConfig.menuItemFontSize
-        label.fontColor = GameConfig.hudTextColor
-        label.horizontalAlignmentMode = .center
-        label.verticalAlignmentMode = .center
-        hit.addChild(label)
+        addChild(MenuWidgets.framedButton(text: text, name: name, at: CGPoint(x: GameConfig.sceneSide / 2, y: y)))
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {

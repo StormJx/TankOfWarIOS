@@ -43,19 +43,22 @@ struct PresentationTests {
         #expect(AudioManager.isMuted == false)
     }
 
-    @Test("菜单和结算用菜单色，战场保持纯黑")
+    @Test("菜单深蓝和战场土色分开")
     func menuChromeDiffersFromBattlefield() {
-        #expect(isBlack(GameConfig.battlefieldColor))
-        #expect(!isBlack(GameConfig.menuBackgroundColor))
+        let field = channels(GameConfig.battlefieldColor)
+        let menu = channels(GameConfig.menuBackgroundColor)
+        #expect(field.g > field.b)
+        #expect(menu.b > menu.g)
+        #expect(abs(field.r - menu.r) > 0.05 || abs(field.b - menu.b) > 0.05)
     }
 
-    private func isBlack(_ color: SKColor) -> Bool {
+    private func channels(_ color: SKColor) -> (r: CGFloat, g: CGFloat, b: CGFloat) {
         var r: CGFloat = 0
         var g: CGFloat = 0
         var b: CGFloat = 0
         var a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
-        return r < 0.01 && g < 0.01 && b < 0.01 && a > 0.99
+        return (r, g, b)
     }
 
     @Test("战场边长按 sceneSide 整数倍吸附，过窄时退回可用边长")
@@ -65,6 +68,8 @@ struct PresentationTests {
         #expect(GameConfig.integerScaledBattlefieldSide(available: side * 1.2) == side)
         #expect(GameConfig.integerScaledBattlefieldSide(available: side * 0.8) == side * 0.8)
         #expect(GameConfig.integerScaledBattlefieldSide(available: 0) == 0)
+        let sharp = GameConfig.integerScaledBattlefieldSide(available: 402, displayScale: 3)
+        #expect(abs(sharp - (5 * side / 3)) < 0.02)
     }
 
     @Test("坦克视觉缩进和抖动只是表现常量，碰撞仍按 tile")
