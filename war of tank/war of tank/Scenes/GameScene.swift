@@ -83,6 +83,9 @@ final class GameScene: SKScene {
 
         enemies.removeAll { enemy in
             guard enemy.hp <= 0 else { return false }
+            if enemy.isRewardCarrier {
+                powerUps.drop(at: enemy.position, map: map, parent: self, tanks: allLivingTanks())
+            }
             if let boss = enemy as? BossTank {
                 EffectFactory.bossDeath(at: boss.position, footprint: boss.size, in: self)
             }
@@ -118,7 +121,11 @@ final class GameScene: SKScene {
         #endif
 
         spawnSystem = SpawnSystem(mix: level.enemyMix)
-        powerUps = PowerUpSystem(isBossLevel: level.bossType != nil)
+        let stage = flow?.levels.stageNumber ?? 1
+        powerUps = PowerUpSystem(
+            isBossLevel: level.bossType != nil,
+            allowsEnemyPickup: stage >= GameConfig.enemyPowerUpMinStage
+        )
         lives = GameConfig.playerLives
         bindStatusCallbacks()
 
@@ -172,8 +179,15 @@ final class GameScene: SKScene {
             liveEnemies: enemies,
             blockingTanks: blockers
         )
+        let stage = flow?.levels.stageNumber ?? 1
         for enemy in born {
+            if stage <= GameConfig.earlyStageCount, !enemy.isBoss {
+                enemy.bulletSpeed = GameConfig.earlyEnemyBulletSpeed
+            }
             addChild(enemy)
+            if enemy.isRewardCarrier {
+                EffectFactory.applyRewardFlash(to: enemy)
+            }
             enemies.append(enemy)
         }
     }
@@ -199,7 +213,8 @@ final class GameScene: SKScene {
                 map: map,
                 player: livingPlayer,
                 bullets: bullets,
-                powerUp: powerUps.current
+                powerUp: powerUps.allowsEnemyPickup ? powerUps.current : nil,
+                stage: flow?.levels.stageNumber ?? 1
             )
             if let final = enemy as? FinalBoss, command.isCharging {
                 applyCharge(final, direction: command.direction ?? final.direction, dt: dt, map: map)
@@ -231,7 +246,12 @@ final class GameScene: SKScene {
             x: tank.position.x + clipped.x,
             y: tank.position.y + clipped.y
         )
-        tank.presentMotion(clipped.x != 0 || clipped.y != 0)
+        let wanted = abs(desired.x) > GameConfig.collisionEpsilon || abs(desired.y) > GameConfig.collisionEpsilon
+        let moved = abs(clipped.x) > GameConfig.collisionEpsilon || abs(clipped.y) > GameConfig.collisionEpsilon
+        if tank.commandedDirection == nil, wanted, !moved {
+            tank.stopSlide()
+        }
+        tank.presentMotion(moved)
     }
 
     private func updatePowerUps(dt: TimeInterval, map: GridMap) {
@@ -324,9 +344,20 @@ final class GameScene: SKScene {
                 finishGame()
                 return true
             }
-            let destroyed = map.destroyTile(at: point, byLevel3Bullet: bullet.canBreakSteel)
-            if destroyed {
-                mapRenderer?.refreshTile(at: point)
+            if tile == .brick {
+                let changed = map.damageBrick(
+                    hitBy: bullet.collisionRect,
+                    travel: bullet.travel,
+                    doubleDepth: bullet.canBreakSteel
+                )
+                for point in changed {
+                    mapRenderer?.refreshTile(at: point)
+                }
+            } else {
+                let destroyed = map.destroyTile(at: point, byLevel3Bullet: bullet.canBreakSteel)
+                if destroyed {
+                    mapRenderer?.refreshTile(at: point)
+                }
             }
             PresentationCues.hitTerrain(tile)
             EffectFactory.smallExplosion(at: map.center(of: point), in: self)

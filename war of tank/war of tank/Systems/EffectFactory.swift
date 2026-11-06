@@ -205,6 +205,26 @@ enum EffectFactory {
         overlay.run(hitFlashAction.copy() as! SKAction)
     }
 
+    private static let rewardFlashAction: SKAction = {
+        SKAction.repeatForever(
+            SKAction.sequence([
+                SKAction.fadeAlpha(to: 0.2, duration: 0.12),
+                SKAction.fadeAlpha(to: 0.7, duration: 0.12)
+            ])
+        )
+    }()
+
+    static func applyRewardFlash(to node: SKSpriteNode) {
+        node.childNode(withName: GameConfig.rewardFlashNodeName)?.removeFromParent()
+        let mark = SKSpriteNode(color: GameConfig.rewardCarrierColor, size: node.size)
+        mark.name = GameConfig.rewardFlashNodeName
+        mark.alpha = 0.55
+        mark.zPosition = GameConfig.tankOverlayZ
+        mark.isUserInteractionEnabled = false
+        node.addChild(mark)
+        mark.run(rewardFlashAction.copy() as! SKAction)
+    }
+
     static func applyInvincibleFlicker(to node: SKNode) {
         node.childNode(withName: GameConfig.hitFlashNodeName)?.removeFromParent()
         let target = spriteTarget(for: node)

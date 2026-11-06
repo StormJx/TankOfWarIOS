@@ -131,6 +131,30 @@ struct CollisionSystemTests {
         #expect(isOutOfBounds(CollisionSystem.bulletHitTest(bullet: bullet, map: map, tanks: [], bullets: [])))
     }
 
+    @Test("打掉的小块不再挡子弹，剩下的小块仍然挡住")
+    func clearedQuadrantNoLongerStopsBullets() {
+        let map = makeLevel1Map()
+        let brick = GridPoint(col: 5, row: 12)
+        _ = map.damageBrick(
+            hitBy: quadrantProbe(0, at: brick),
+            travel: CGVector(dx: 0, dy: 1),
+            doubleDepth: false
+        )
+        let bullet = Bullet(
+            direction: .up,
+            moveSpeed: GameConfig.playerBulletSpeedLevel0,
+            canBreakSteel: false,
+            owner: .player
+        )
+        let gone = quadrantProbe(0, at: brick)
+        bullet.position = CGPoint(x: gone.midX, y: gone.midY)
+        #expect(isNone(CollisionSystem.bulletHitTest(bullet: bullet, map: map, tanks: [], bullets: [])))
+
+        let stay = quadrantProbe(3, at: brick)
+        bullet.position = CGPoint(x: stay.midX, y: stay.midY)
+        #expect(isTerrain(CollisionSystem.bulletHitTest(bullet: bullet, map: map, tanks: [], bullets: []), brick))
+    }
+
     @Test("一次跳过整面砖墙会漏检，按 4pt 步长推进则能打中")
     func substepPreventsTunnelingThroughBrick() {
         let map = makeLevel1Map()
@@ -175,6 +199,18 @@ struct CollisionSystemTests {
     private func isTerrain(_ result: HitResult, _ point: GridPoint) -> Bool {
         if case .terrain(let hit) = result { return hit == point }
         return false
+    }
+
+    private func quadrantProbe(_ index: Int, at point: GridPoint) -> CGRect {
+        let half = GameConfig.tileSize / 2
+        let originX = CGFloat(point.col) * GameConfig.tileSize
+        let originY = GameConfig.sceneSide - CGFloat(point.row + 1) * GameConfig.tileSize
+        return CGRect(
+            x: originX + (index % 2 == 1 ? half : 0) + 1,
+            y: originY + (index >= 2 ? half : 0) + 1,
+            width: 4,
+            height: 4
+        )
     }
 
     /// 右侧必须是空地，否则一次跳过整格会落到相邻砖上，测不到“漏检”。

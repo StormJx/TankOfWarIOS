@@ -9,7 +9,6 @@ import SpriteKit
 final class PowerUpSystem {
 
     private(set) var current: PowerUp?
-    private var spawnIn: TimeInterval
     private struct ShovelCell {
         let original: TileType
         let effect: TileType
@@ -18,14 +17,15 @@ final class PowerUpSystem {
     private var shovelSnapshot: [GridPoint: ShovelCell] = [:]
     private var shovelShowingOriginal = false
     let isBossLevel: Bool
+    let allowsEnemyPickup: Bool
 
-    init(isBossLevel: Bool = false) {
+    init(isBossLevel: Bool = false, allowsEnemyPickup: Bool = false) {
         self.isBossLevel = isBossLevel
-        spawnIn = Self.randomSpawnDelay()
+        self.allowsEnemyPickup = allowsEnemyPickup
     }
 
-    static func randomSpawnDelay() -> TimeInterval {
-        TimeInterval.random(in: GameConfig.powerUpSpawnMin...GameConfig.powerUpSpawnMax)
+    func canCollect(_ tank: Tank) -> Bool {
+        tank is PlayerTank || allowsEnemyPickup
     }
 
     static func weights(isBossLevel: Bool) -> [(PowerUpType, Int)] {
@@ -70,28 +70,36 @@ final class PowerUpSystem {
 
     func update(
         dt: TimeInterval,
-        map: GridMap,
-        parent: SKNode,
-        tanks: [Tank]
+        map _: GridMap,
+        parent _: SKNode,
+        tanks _: [Tank]
     ) {
         if let powerUp = current {
             powerUp.tick(dt: dt)
             if powerUp.isExpired {
                 despawn()
             }
-        } else {
-            spawnIn -= dt
-            if spawnIn <= 0 {
-                trySpawn(map: map, parent: parent, tanks: tanks)
-                spawnIn = Self.randomSpawnDelay()
-            }
         }
+    }
+
+    /// 闪红敌人被击毁时调用。场上已有道具会被换掉
+    func drop(at position: CGPoint, map: GridMap, parent: SKNode, tanks: [Tank]) {
+        despawn()
+        let origin = map.gridPoint(at: position)
+        let point = Self.isLegalSpawn(origin, map: map, tanks: tanks)
+            ? origin
+            : nearestLegalSpawn(to: origin, map: map, tanks: tanks)
+        guard let point else { return }
+        let powerUp = PowerUp(type: Self.pickType(isBossLevel: isBossLevel), at: map.center(of: point))
+        parent.addChild(powerUp)
+        current = powerUp
+        PresentationCues.powerUpAppeared()
     }
 
     func collectIfNeeded(tanks: [Tank], map: GridMap) -> (PowerUpType, Tank)? {
         guard let powerUp = current else { return nil }
         let cell = map.gridPoint(at: powerUp.position)
-        for tank in tanks where tank.hp > 0 {
+        for tank in tanks where tank.hp > 0 && canCollect(tank) {
             if map.gridPoint(at: tank.position) == cell
                 || tank.collisionRect.intersects(powerUp.frame) {
                 let type = powerUp.type
@@ -141,15 +149,20 @@ final class PowerUpSystem {
         }
     }
 
-    private func trySpawn(map: GridMap, parent: SKNode, tanks: [Tank]) {
-        guard current == nil else { return }
-        let candidates = (0..<GameConfig.gridCount).flatMap { row in
-            (0..<GameConfig.gridCount).map { GridPoint(col: $0, row: row) }
-        }.filter { Self.isLegalSpawn($0, map: map, tanks: tanks) }
-        guard let point = candidates.randomElement() else { return }
-        let powerUp = PowerUp(type: Self.pickType(isBossLevel: isBossLevel), at: map.center(of: point))
-        parent.addChild(powerUp)
-        current = powerUp
-        PresentationCues.powerUpAppeared()
+    private func nearestLegalSpawn(to origin: GridPoint, map: GridMap, tanks: [Tank]) -> GridPoint? {
+        var best: GridPoint?
+        var bestDistance = Int.max
+        for row in 0..<GameConfig.gridCount {
+            for col in 0..<GameConfig.gridCount {
+                let point = GridPoint(col: col, row: row)
+                guard Self.isLegalSpawn(point, map: map, tanks: tanks) else { continue }
+                let distance = origin.manhattanDistance(to: point)
+                if distance < bestDistance {
+                    best = point
+                    bestDistance = distance
+                }
+            }
+        }
+        return best
     }
 }

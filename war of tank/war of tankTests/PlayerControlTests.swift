@@ -210,6 +210,30 @@ struct PlayerControlTests {
         #expect(tank.collisionRect == box)
     }
 
+    @Test("冰面松手后继续滑，撞墙立刻停")
+    func iceSlideDecaysUntilAWallStopsIt() {
+        let map = GridMap(rows: Levels.level1.rows)
+        let ice = GridPoint(col: 1, row: 1)
+        #expect(map.tile(at: ice) == .empty)
+        map.setTile(.ice, at: ice)
+        let tank = PlayerTank(at: map.center(of: ice))
+        tank.commandedDirection = .right
+        _ = tank.move(dt: 0.05, in: map)
+        tank.commandedDirection = nil
+        let slide = tank.move(dt: 0.05, in: map)
+        #expect(slide.x > 0)
+
+        let clipped = CollisionSystem.resolveTankMove(
+            tank: tank,
+            desiredDelta: CGPoint(x: GameConfig.tileSize, y: 0),
+            map: map,
+            others: []
+        )
+        #expect(clipped == .zero)
+        tank.stopSlide()
+        #expect(tank.move(dt: 0.05, in: map) == .zero)
+    }
+
     private func colorsMatch(_ lhs: SKColor, _ rhs: SKColor) -> Bool {
         var lr: CGFloat = 0, lg: CGFloat = 0, lb: CGFloat = 0, la: CGFloat = 0
         var rr: CGFloat = 0, rg: CGFloat = 0, rb: CGFloat = 0, ra: CGFloat = 0

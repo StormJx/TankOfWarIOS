@@ -57,7 +57,8 @@ final class AIController {
         map: GridMap,
         player: PlayerTank?,
         bullets: [Bullet],
-        powerUp: PowerUp?
+        powerUp: PowerUp?,
+        stage: Int
     ) -> AICommand {
         if enemy is BossTank {
             return commandBoss(enemy, dt: dt, map: map, player: player)
@@ -105,7 +106,7 @@ final class AIController {
         }
 
         if memory.decisionAge >= GameConfig.aiDecisionInterval {
-            memory.state = pickState(playerCell: playerCell, from: cell)
+            memory.state = pickState(playerCell: playerCell, from: cell, stage: stage)
             memory.decisionAge = 0
         }
 
@@ -132,13 +133,14 @@ final class AIController {
 
     // MARK: - 决策
 
-    private func pickState(playerCell: GridPoint?, from cell: GridPoint) -> AIState {
+    private func pickState(playerCell: GridPoint?, from cell: GridPoint, stage: Int) -> AIState {
+        let early = stage <= GameConfig.earlyStageCount
         var weights: [(AIState, Int)] = [
-            (.patrol, GameConfig.aiPatrolWeight),
-            (.huntBase, GameConfig.aiHuntBaseWeight)
+            (.patrol, early ? GameConfig.earlyAiPatrolWeight : GameConfig.aiPatrolWeight),
+            (.huntBase, early ? GameConfig.earlyAiHuntBaseWeight : GameConfig.aiHuntBaseWeight)
         ]
         if let playerCell, cell.manhattanDistance(to: playerCell) <= GameConfig.aiHuntPlayerRangeInTiles {
-            weights.append((.huntPlayer, GameConfig.aiHuntPlayerWeight))
+            weights.append((.huntPlayer, early ? GameConfig.earlyAiHuntPlayerWeight : GameConfig.aiHuntPlayerWeight))
         }
         let total = weights.reduce(0) { $0 + $1.1 }
         var ticket = Int.random(in: 0..<max(total, 1))

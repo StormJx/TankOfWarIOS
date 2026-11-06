@@ -26,6 +26,23 @@ enum TileTextures {
         return texture
     }
 
+    /// 砖贴图按左下、右下、左上、右上切开，和 GridMap 的 mask 位一致
+    static func brickQuadrant(_ index: Int) -> SKTexture? {
+        guard (0..<4).contains(index), let base = texture(for: .brick) else { return nil }
+        let key = "brick-quadrant-\(index)"
+        if let cached = cache[key] { return cached }
+        let rect = CGRect(
+            x: index % 2 == 1 ? 0.5 : 0,
+            y: index >= 2 ? 0.5 : 0,
+            width: 0.5,
+            height: 0.5
+        )
+        let piece = SKTexture(rect: rect, in: base)
+        piece.filteringMode = .nearest
+        cache[key] = piece
+        return piece
+    }
+
     private static func make(for type: TileType, frame: Int = 0) -> SKTexture {
         let side = GameConfig.tileSize
         let format = UIGraphicsImageRendererFormat.default()

@@ -186,6 +186,18 @@ enum GameConfig {
     static let aiPatrolWeight = 20
     static let aiHuntBaseWeight = 40
     static let aiHuntPlayerWeight = 40
+    /// 第 1–2 关少打基地、多巡逻，让玩家先守住老家
+    static let earlyStageCount = 2
+    static let earlyAiPatrolWeight = 70
+    static let earlyAiHuntBaseWeight = 10
+    static let earlyAiHuntPlayerWeight = 20
+    static let earlyEnemyBulletSpeed: CGFloat = 64
+    /// 出场序号能被它整除的敌人才闪红掉道具（第 4、8、12 辆）
+    static let rewardCarrierInterval = 4
+    /// 这一关起敌人才可以抢道具
+    static let enemyPowerUpMinStage = 6
+    static let fullBrickMask: UInt8 = 0b1111
+    static let iceSlideDuration: TimeInterval = 0.35
     static let aiPatrolDownWeight = 4
     static let aiPatrolSideWeight = 2
     static let aiSeekPowerUpRangeInTiles = 5
@@ -399,6 +411,10 @@ enum GameConfig {
     static let hudPlaceholderColor = SKColor(red: 0.12, green: 0.10, blue: 0.07, alpha: 1)
     static let controlAreaPlaceholderColor = SKColor(red: 0.09, green: 0.08, blue: 0.06, alpha: 1)
     static let hudIconSize: CGFloat = 14
+    static let hudRemainingIconSize: CGFloat = 8
+    static let hudRemainingIconCap = 16
+    static let rewardFlashNodeName = "rewardFlash"
+    static let rewardCarrierColor = SKColor(red: 0.95, green: 0.15, blue: 0.12, alpha: 1)
     static let hudIconSpacing: CGFloat = 4
     static let hudGroupSpacing: CGFloat = 12
     static let hudPauseReserve: CGFloat = 44

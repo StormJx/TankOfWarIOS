@@ -50,6 +50,7 @@ class EnemyTank: Tank {
     let type: EnemyType
     let score: Int
     var isReinforcement = false
+    var isRewardCarrier = false
     var isBoss = false
 
     override var maxSimultaneousBullets: Int {

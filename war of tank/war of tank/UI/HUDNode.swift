@@ -9,6 +9,7 @@ final class HUDNode: SKNode {
 
     private let lifeNodes: [SKSpriteNode]
     private let enemyIcon: SKSpriteNode
+    private let remainingIcons: [SKSpriteNode]
     private let enemyCount = SKLabelNode(fontNamed: GameConfig.debugGridLabelFontName)
     private let stageLabel = SKLabelNode(fontNamed: GameConfig.debugGridLabelFontName)
     private let scoreLabel = SKLabelNode(fontNamed: GameConfig.debugGridLabelFontName)
@@ -22,6 +23,13 @@ final class HUDNode: SKNode {
         }
         let enemyTexture = SpriteProvider.enemyFrames(type: .normal, hp: 1).first
         enemyIcon = HUDNode.icon(texture: enemyTexture, fallback: GameConfig.enemyNormalColor)
+        remainingIcons = (0..<GameConfig.hudRemainingIconCap).map { _ in
+            HUDNode.icon(
+                texture: enemyTexture,
+                fallback: GameConfig.enemyNormalColor,
+                side: GameConfig.hudRemainingIconSize
+            )
+        }
         powerPips = (0..<GameConfig.playerFirepowerMax).map { _ in
             SKSpriteNode(color: GameConfig.playerBarrelPoweredColor, size: CGSize(width: GameConfig.hudPipSize, height: GameConfig.hudPipSize))
         }
@@ -29,6 +37,7 @@ final class HUDNode: SKNode {
         zPosition = GameConfig.Layer.ui
         for life in lifeNodes { addChild(life) }
         addChild(enemyIcon)
+        for icon in remainingIcons { addChild(icon) }
         configure(enemyCount)
         configure(stageLabel)
         configure(scoreLabel)
@@ -49,31 +58,39 @@ final class HUDNode: SKNode {
         let gap = GameConfig.hudIconSpacing
         let group = GameConfig.hudGroupSpacing
         var x = icon / 2
+        let textY = icon / 2
 
         for (index, life) in lifeNodes.enumerated() {
-            life.position = CGPoint(x: x, y: 0)
+            life.position = CGPoint(x: x, y: textY)
             life.alpha = index < state.lives ? 1 : GameConfig.hudDimAlpha
             x += icon + gap
         }
         x += group - gap
 
-        enemyIcon.position = CGPoint(x: x, y: 0)
-        x += icon / 2 + gap
-        enemyCount.text = "\(state.remainingEnemies)"
-        enemyCount.position = CGPoint(x: x + enemyCount.frame.width / 2, y: 0)
-        x += max(enemyCount.frame.width, icon) + group
+        enemyIcon.isHidden = true
+        enemyCount.isHidden = true
+        let shown = min(state.remainingEnemies, remainingIcons.count)
+        let mark = GameConfig.hudRemainingIconSize
+        let markGap: CGFloat = 1
+        for (index, markNode) in remainingIcons.enumerated() {
+            markNode.isHidden = index >= shown
+            markNode.position = CGPoint(
+                x: mark / 2 + CGFloat(index) * (mark + markGap),
+                y: -mark
+            )
+        }
 
         stageLabel.text = L10n.hudStage(state.stage)
-        stageLabel.position = CGPoint(x: x + stageLabel.frame.width / 2, y: 0)
+        stageLabel.position = CGPoint(x: x + stageLabel.frame.width / 2, y: textY)
         x += stageLabel.frame.width + group
 
         scoreLabel.text = L10n.hudScore(state.score)
-        scoreLabel.position = CGPoint(x: x + scoreLabel.frame.width / 2, y: 0)
+        scoreLabel.position = CGPoint(x: x + scoreLabel.frame.width / 2, y: textY)
 
         let pipGap = GameConfig.hudPipSize + gap
         var pipX = width - GameConfig.hudPauseReserve - CGFloat(powerPips.count) * pipGap
         for (index, pip) in powerPips.enumerated() {
-            pip.position = CGPoint(x: pipX, y: 0)
+            pip.position = CGPoint(x: pipX, y: textY)
             pip.alpha = index < state.firepower ? 1 : GameConfig.hudDimAlpha
             pipX += pipGap
         }
@@ -81,7 +98,7 @@ final class HUDNode: SKNode {
         effectLabel.text = state.effects.joined(separator: " ")
         effectLabel.horizontalAlignmentMode = .left
         let effectX = scoreLabel.position.x + scoreLabel.frame.width / 2 + group
-        effectLabel.position = CGPoint(x: effectX, y: 0)
+        effectLabel.position = CGPoint(x: effectX, y: textY)
     }
 
     private func configure(_ label: SKLabelNode) {
@@ -91,11 +108,11 @@ final class HUDNode: SKNode {
         label.horizontalAlignmentMode = .center
     }
 
-    private static func icon(texture: SKTexture?, fallback: SKColor) -> SKSpriteNode {
+    private static func icon(texture: SKTexture?, fallback: SKColor, side: CGFloat = GameConfig.hudIconSize) -> SKSpriteNode {
         let node = SKSpriteNode(
             texture: texture,
             color: texture == nil ? fallback : .clear,
-            size: CGSize(width: GameConfig.hudIconSize, height: GameConfig.hudIconSize)
+            size: CGSize(width: side, height: side)
         )
         node.texture?.filteringMode = .nearest
         return node

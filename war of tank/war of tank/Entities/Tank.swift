@@ -31,6 +31,8 @@ class Tank: SKSpriteNode {
     var trackFrames: [SKTexture] = []
     var trackCacheKey = ""
     private var isPresentingMotion = false
+    private var slideDirection: Direction?
+    private var slideRemaining: TimeInterval = 0
     /// 贴图和抖动挂在这里，父节点 position 只服务碰撞
     private let visualNode = SKSpriteNode(color: .clear, size: .zero)
 
@@ -129,15 +131,24 @@ class Tank: SKSpriteNode {
         )
     }
 
-    /// 转向时把垂直轴并进位移，交给 CollisionSystem 裁剪，避免吸附直接嵌进墙里
-    func move(dt: TimeInterval, in _: GridMap) -> CGPoint {
-        guard canMove, let command = commandedDirection else { return .zero }
+    func stopSlide() {
+        slideRemaining = 0
+    }
 
-        let travel = moveSpeed * CGFloat(dt)
-        var delta = CGPoint(
-            x: command.vector.dx * travel,
-            y: command.vector.dy * travel
-        )
+    /// 转向时把垂直轴并进位移，交给 CollisionSystem 裁剪，避免吸附直接嵌进墙里。
+    /// 冰面上松开方向后，沿原方向在 iceSlideDuration 内线性减速。
+    func move(dt: TimeInterval, in map: GridMap) -> CGPoint {
+        guard canMove else { return .zero }
+        if let command = commandedDirection {
+            slideDirection = command
+            let onIce = map.tile(at: map.gridPoint(at: position)) == .ice
+            slideRemaining = onIce ? GameConfig.iceSlideDuration : 0
+
+            let travel = moveSpeed * CGFloat(dt)
+            var delta = CGPoint(
+                x: command.vector.dx * travel,
+                y: command.vector.dy * travel
+            )
 
         // 每帧都吸附一次：转向当帧若被墙裁掉，下一帧还能继续对进走廊
         let snapped = alignedPosition(for: command)
@@ -146,6 +157,18 @@ class Tank: SKSpriteNode {
         direction = command
 
         return delta
+        }
+
+        guard slideRemaining > 0, let slideDirection else { return .zero }
+        let duration = GameConfig.iceSlideDuration
+        let factor = CGFloat(slideRemaining / duration)
+        slideRemaining = max(0, slideRemaining - dt)
+        let travel = moveSpeed * factor * CGFloat(dt)
+        direction = slideDirection
+        return CGPoint(
+            x: slideDirection.vector.dx * travel,
+            y: slideDirection.vector.dy * travel
+        )
     }
 
     func fire() -> Bullet? {
