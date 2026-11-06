@@ -10,9 +10,13 @@ import Testing
 
 struct PresentationTests {
 
-    @Test("地形贴图是 nearest，空地没有贴图")
+    @Test("地形贴图是 nearest，空地有土块变体")
     func tileTexturesStayNearest() {
-        #expect(TileTextures.texture(for: .empty) == nil)
+        let ground = TileTextures.texture(for: .empty)
+        #expect(ground != nil)
+        #expect(ground?.filteringMode == .nearest)
+        let other = TileTextures.texture(for: .empty, frame: 1)
+        #expect(other != nil)
         let brick = TileTextures.texture(for: .brick)
         #expect(brick != nil)
         #expect(brick?.filteringMode == .nearest)

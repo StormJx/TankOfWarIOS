@@ -70,7 +70,9 @@ final class MapRenderer {
             addBrick(at: point)
             return
         }
-        guard let texture = TileTextures.texture(for: type) else { return }
+        // 相邻空地错开变体，避免 13×13 同一张土块印出来
+        let frame = type == .empty ? groundVariant(at: point) : 0
+        guard let texture = TileTextures.texture(for: type, frame: frame) else { return }
 
         let node = SKSpriteNode(texture: texture, size: GameConfig.tileNodeSize)
         node.position = map.center(of: point)
@@ -83,12 +85,20 @@ final class MapRenderer {
         }
     }
 
-    /// 四块 8pt 各自用砖贴图的一角，打掉的块不再画出来
+    private func groundVariant(at point: GridPoint) -> Int {
+        (point.col * 3 + point.row * 5) % GameConfig.groundVariantCount
+    }
+
+    /// 四块 8pt 各自用砖贴图的一角；打掉的块露出下面的土，不是纯色底
     private func addBrick(at point: GridPoint) {
         let mask = map.brickMask(at: point)
-        guard mask != 0 else { return }
         let container = SKNode()
         container.position = map.center(of: point)
+        if let ground = TileTextures.texture(for: .empty, frame: groundVariant(at: point)) {
+            let soil = SKSpriteNode(texture: ground, size: GameConfig.tileNodeSize)
+            soil.texture?.filteringMode = .nearest
+            container.addChild(soil)
+        }
         let half = GameConfig.tileSize / 4
         let piece = GameConfig.tileSize / 2
         for index in 0..<4 where mask & (1 << index) != 0 {

@@ -149,6 +149,22 @@
       "idiom" : "universal"
     },
     {
+      "filename" : "tile_ground_0.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tile_ground_1.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tile_ground_2.png",
+      "idiom" : "universal"
+    },
+    {
+      "filename" : "tile_ground_3.png",
+      "idiom" : "universal"
+    },
+    {
       "filename" : "tile_brick.png",
       "idiom" : "universal"
     },

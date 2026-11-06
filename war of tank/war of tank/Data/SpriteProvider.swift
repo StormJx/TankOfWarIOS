@@ -23,7 +23,9 @@ enum SpriteProvider {
 
     static func tile(_ type: TileType, frame: Int = 0) -> SKTexture? {
         switch type {
-        case .empty: return nil
+        case .empty:
+            let index = frame % GameConfig.groundVariantCount
+            return named("tile_ground_\(index)")
         case .brick: return named("tile_brick")
         case .steel: return named("tile_steel")
         case .water: return named(frame == 0 ? "tile_water_0" : "tile_water_1")

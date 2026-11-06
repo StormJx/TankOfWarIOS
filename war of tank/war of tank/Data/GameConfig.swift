@@ -360,6 +360,10 @@ enum GameConfig {
     static let trackActionKey = "trackFrames"
     static let sfxFireVoiceLimit = 4
     static let sfxHitVoiceLimit = 3
+    /// 默认 BGM 要盖过环境底噪，但仍低于开火
+    static let musicVolume: Float = 0.72
+    /// 空地土块变体数，和 atlas 里 tile_ground_0… 对齐
+    static let groundVariantCount = 4
     static let bossIntroScale: CGFloat = 1.35
     static let bossIntroDuration: TimeInterval = 0.35
     static let audioFadeDuration: TimeInterval = 0.2

@@ -185,6 +185,36 @@ def boss(size: int, body: str, dark: str, accent: str, frame: int) -> list[list[
 
 
 
+def ground(variant: int) -> list[list[str]]:
+    """空地不是纯色。2x2 土块、碎石和少量苔点按变体错开，铺开后不像一张色纸。"""
+    rows = [["7"] * 16 for _ in range(16)]
+
+    def put(x: int, y: int, color: str) -> None:
+        if 0 <= x < 16 and 0 <= y < 16:
+            rows[y][x] = color
+
+    for y in range(0, 16, 2):
+        for x in range(0, 16, 2):
+            n = (x * 3 + y * 5 + variant * 11) % 13
+            if n in (0, 1):
+                put(x, y, "6")
+                put(x + 1, y, "6")
+                put(x, y + 1, "7")
+                put(x + 1, y + 1, "6")
+            elif n == 2:
+                put(x, y, "5")
+                put(x + 1, y + 1, "6")
+            elif n == 3:
+                put(x, y, "A")
+                put(x + 1, y, "9")
+                put(x, y + 1, "9")
+            elif n == 4:
+                put(x, y, "0")
+                put(x + 1, y, "3")
+                put(x, y + 1, "3")
+    return rows
+
+
 def brick() -> list[list[str]]:
     rows = []
     for y in range(16):
@@ -378,6 +408,129 @@ def looped(pattern: list[float], times: int) -> list[float]:
     return pattern * times
 
 
+def mix_tracks(*tracks: list[float]) -> list[float]:
+    length = max(len(track) for track in tracks)
+    mixed: list[float] = []
+    for index in range(length):
+        sample = 0.0
+        for track in tracks:
+            if index < len(track):
+                sample += track[index]
+        mixed.append(max(-1.0, min(1.0, sample)))
+    return mixed
+
+
+def midi_freq(note: int) -> float:
+    return 440.0 * (2.0 ** ((note - 69) / 12.0))
+
+
+def pulse(note: int | None, beats: float, volume: float, rate: int = 22050, duty: float = 0.125) -> list[float]:
+    """一拍方波。note 为空是休止，方便旋律对齐低音。"""
+    count = max(1, int(beats * 0.14 * rate))
+    if note is None:
+        return [0.0] * count
+    freq = midi_freq(note)
+    out: list[float] = []
+    for i in range(count):
+        t = i / rate
+        # 每拍收一点，循环点不会爆成咔哒
+        env = 0.82 + 0.18 * (1 - i / count)
+        wave = 1.0 if ((t * freq) % 1) < duty else -1.0
+        out.append(wave * volume * env)
+    return out
+
+
+def phrase(notes: list[tuple[int | None, float]], volume: float, duty: float = 0.125) -> list[float]:
+    merged: list[float] = []
+    for note, beats in notes:
+        merged.extend(pulse(note, beats, volume, duty=duty))
+    return merged
+
+
+def drum(beats: float, volume: float = 0.05, rate: int = 22050) -> list[float]:
+    return noise(beats * 0.14, volume, rate)
+
+
+def write_music() -> None:
+    """原创方波进行曲，不借用 Battle City 旋律。三首各自能循环。"""
+    # 菜单：慢一点的大调，一进游戏就有旋律
+    menu_lead = phrase(
+        [
+            (72, 1), (76, 1), (79, 2), (76, 1), (74, 1), (72, 2),
+            (71, 1), (72, 1), (74, 2), (76, 1), (74, 1), (72, 2),
+            (76, 1), (79, 1), (81, 2), (79, 1), (76, 1), (74, 2),
+            (72, 1), (74, 1), (76, 2), (74, 1), (72, 1), (71, 2),
+        ],
+        0.16,
+    )
+    menu_bass = phrase(
+        [(48, 2), (55, 2), (43, 2), (48, 2)] * 8,
+        0.10,
+        duty=0.25,
+    )
+    menu_answer = phrase(
+        [
+            (74, 1), (77, 1), (81, 2), (79, 1), (77, 1), (76, 2),
+            (74, 1), (76, 1), (77, 2), (79, 1), (77, 1), (76, 2),
+            (72, 1), (76, 1), (79, 2), (76, 1), (74, 1), (72, 2),
+            (71, 2), (72, 2), (74, 2), (72, 2),
+        ],
+        0.16,
+    )
+    # 战斗：稳定低音 + 上行旋律，比菜单更密
+    battle_lead = phrase(
+        [
+            (67, 1), (70, 1), (72, 1), (74, 1), (75, 2), (74, 1), (72, 1),
+            (70, 1), (67, 1), (70, 2), (72, 1), (70, 1), (67, 2),
+            (74, 1), (75, 1), (77, 2), (75, 1), (74, 1), (72, 2),
+            (70, 1), (72, 1), (74, 2), (70, 2), (67, 2),
+        ],
+        0.18,
+    )
+    battle_bass = phrase(
+        [(43, 1), (43, 1), (50, 1), (43, 1)] * 16,
+        0.12,
+        duty=0.25,
+    )
+    battle_answer = phrase(
+        [
+            (70, 1), (72, 1), (74, 1), (75, 1), (77, 2), (75, 1), (74, 1),
+            (72, 1), (70, 1), (72, 2), (74, 1), (72, 1), (70, 2),
+            (67, 1), (70, 1), (72, 2), (74, 1), (72, 1), (70, 2),
+            (67, 1), (70, 1), (72, 2), (67, 2), (65, 2),
+        ],
+        0.18,
+    )
+    battle_hat = concat(*([drum(1), [0.0] * len(drum(1))] * 32))
+    # Boss：小调、更低、留白更多
+    boss_lead = phrase(
+        [
+            (63, 2), (65, 1), (63, 1), (60, 2), (58, 2),
+            (63, 2), (67, 2), (65, 2), (63, 2),
+            (58, 2), (60, 1), (63, 1), (65, 4),
+            (63, 2), (60, 2), (58, 4),
+        ],
+        0.18,
+    )
+    boss_bass = phrase(
+        [(46, 2), (41, 2), (46, 2), (39, 2)] * 8,
+        0.13,
+        duty=0.25,
+    )
+    boss_answer = phrase(
+        [
+            (60, 2), (63, 2), (65, 2), (63, 2),
+            (58, 4), (60, 2), (63, 2),
+            (65, 2), (67, 2), (65, 2), (63, 2),
+            (60, 4), (58, 4),
+        ],
+        0.18,
+    )
+    write_wav(AUDIO / "bgm_menu.wav", mix_tracks(concat(menu_lead, menu_answer), menu_bass))
+    write_wav(AUDIO / "bgm_battle.wav", mix_tracks(concat(battle_lead, battle_answer), battle_bass, battle_hat))
+    write_wav(AUDIO / "bgm_boss.wav", mix_tracks(concat(boss_lead, boss_answer), boss_bass))
+
+
 def write_atlas_contents(names: list[str]) -> None:
     images = ",\n".join(
         f'    {{\n      "filename" : "{name}.png",\n      "idiom" : "universal"\n    }}'
@@ -404,6 +557,8 @@ def main(skip_audio: bool = False) -> None:
         write_atlas(name, pixels)
         names.append(name)
 
+    for index in range(4):
+        add(f"tile_ground_{index}", ground(index))
     add("tile_brick", brick())
     add("tile_steel", steel())
     add("tile_water_0", water(0))
@@ -491,34 +646,7 @@ def main(skip_audio: bool = False) -> None:
     write_wav(AUDIO / "stage_start.wav", concat(tone(392, 0.08, 0.16), tone(523, 0.08, 0.16), tone(659, 0.16, 0.18)))
     write_wav(AUDIO / "game_over.wav", concat(tone(330, 0.16, 0.16), tone(262, 0.18, 0.14), tone(196, 0.28, 0.12)))
 
-    menu = concat(
-        tone(392, 0.2, 0.1, decay=False),
-        tone(494, 0.2, 0.1, decay=False),
-        tone(523, 0.2, 0.1, decay=False),
-        tone(392, 0.2, 0.1, decay=False),
-        tone(349, 0.2, 0.08, decay=False),
-        tone(392, 0.4, 0.1, decay=False),
-    )
-    battle = concat(
-        tone(262, 0.12, 0.1, decay=False),
-        tone(330, 0.12, 0.1, decay=False),
-        tone(392, 0.12, 0.1, decay=False),
-        tone(330, 0.12, 0.1, decay=False),
-        tone(294, 0.12, 0.09, decay=False),
-        tone(262, 0.12, 0.09, decay=False),
-        tone(196, 0.24, 0.1, decay=False),
-    )
-    boss_bgm = concat(
-        tone(196, 0.16, 0.12, decay=False),
-        tone(185, 0.16, 0.12, decay=False),
-        tone(165, 0.16, 0.12, decay=False),
-        tone(147, 0.32, 0.14, decay=False),
-        tone(196, 0.16, 0.12, decay=False),
-        tone(247, 0.32, 0.13, decay=False),
-    )
-    write_wav(AUDIO / "bgm_menu.wav", looped(menu, 4))
-    write_wav(AUDIO / "bgm_battle.wav", looped(battle, 6))
-    write_wav(AUDIO / "bgm_boss.wav", looped(boss_bgm, 6))
+    write_music()
 
 
 if __name__ == "__main__":
@@ -528,4 +656,14 @@ if __name__ == "__main__":
         action="store_true",
         help="只重绘精灵，避免无故改写 WAV",
     )
-    main(skip_audio=parser.parse_args().skip_audio)
+    parser.add_argument(
+        "--only-music",
+        action="store_true",
+        help="只重写三首 BGM，不动音效和贴图",
+    )
+    args = parser.parse_args()
+    if args.only_music:
+        AUDIO.mkdir(parents=True, exist_ok=True)
+        write_music()
+    else:
+        main(skip_audio=args.skip_audio)
