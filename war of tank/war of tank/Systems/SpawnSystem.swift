@@ -9,12 +9,18 @@ final class SpawnSystem {
 
     private struct PendingSpawn {
         let type: EnemyType
+        let isRewardCarrier: Bool
         let point: GridPoint
         var remaining: TimeInterval
         let beacon: SKNode
     }
 
-    private var queue: [EnemyType]
+    private struct QueuedEnemy {
+        let type: EnemyType
+        let isRewardCarrier: Bool
+    }
+
+    private var queue: [QueuedEnemy]
     private var pending: [PendingSpawn] = []
     private var nextSpawnIndex = 0
     private var extraSlots = 0
@@ -22,9 +28,20 @@ final class SpawnSystem {
     var onScreenCap: Int { GameConfig.enemyOnScreenCap + extraSlots }
 
     init(mix: EnemyMix) {
-        queue = Array(repeating: .normal, count: mix.normal)
-            + Array(repeating: .fast, count: mix.fast)
-            + Array(repeating: .armored, count: mix.armored)
+        let types = Array(repeating: EnemyType.normal, count: mix.normal)
+            + Array(repeating: EnemyType.fast, count: mix.fast)
+            + Array(repeating: EnemyType.armored, count: mix.armored)
+        queue = types.enumerated().map { index, type in
+            QueuedEnemy(
+                type: type,
+                isRewardCarrier: Self.isRewardSpawn(oneBasedIndex: index + 1)
+            )
+        }
+    }
+
+    static func isRewardSpawn(oneBasedIndex: Int) -> Bool {
+        oneBasedIndex >= GameConfig.rewardCarrierInterval
+            && oneBasedIndex % GameConfig.rewardCarrierInterval == 0
     }
 
     var remainingInQueue: Int { queue.count }
@@ -59,6 +76,7 @@ final class SpawnSystem {
             }
             item.beacon.removeFromParent()
             let tank = EnemyTank(type: item.type, at: map.center(of: item.point))
+            tank.isRewardCarrier = item.isRewardCarrier
             born.append(tank)
         }
         pending = kept
@@ -96,12 +114,14 @@ final class SpawnSystem {
         while !queue.isEmpty
             && liveEnemies.count + pending.count < onScreenCap {
             guard let point = nextFreeSpawn(map: map, tanks: blockingTanks + liveEnemies) else { break }
-            let type = queue.removeFirst()
+            let queued = queue.removeFirst()
+            let type = queued.type
             let beacon = EffectFactory.spawnBeacon(at: map.center(of: point))
             parent.addChild(beacon)
             pending.append(
                 PendingSpawn(
                     type: type,
+                    isRewardCarrier: queued.isRewardCarrier,
                     point: point,
                     remaining: GameConfig.enemySpawnFlashDuration,
                     beacon: beacon

@@ -44,14 +44,14 @@ final class ControlScene: SKScene {
         guard size.width > 0, size.height > 0 else { return }
 
         let padding = GameConfig.controlSidePadding
-        let midY = size.height / 2
+        let y = GameConfig.controlBottomPadding + GameConfig.joystickBaseRadius
         joystick.position = CGPoint(
             x: padding + GameConfig.joystickTouchRadius,
-            y: midY
+            y: y
         )
         fireButton.position = CGPoint(
             x: size.width - padding - GameConfig.fireButtonRadius,
-            y: midY
+            y: y
         )
     }
 }

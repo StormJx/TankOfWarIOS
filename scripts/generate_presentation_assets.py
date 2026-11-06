@@ -3,13 +3,14 @@
 
 from __future__ import annotations
 
+import argparse
 import math
 import struct
 import wave
 import zlib
 from pathlib import Path
 
-ROOT = Path("/Users/jixiang/war of tank/war of tank/war of tank")
+ROOT = Path(__file__).resolve().parents[1] / "war of tank" / "war of tank"
 ATLAS = ROOT / "Assets.xcassets" / "Sprites.spriteatlas"
 ICON = ROOT / "Assets.xcassets" / "AppIcon.appiconset"
 AUDIO = ROOT / "Resources" / "Audio"
@@ -79,68 +80,138 @@ def write_atlas(name: str, pixels: list[list[str]]) -> None:
     write_png(ATLAS / f"{name}.png", pixels)
 
 
-def tank(body: str, track: str, barrel: str, tread: str, frame: int) -> list[list[str]]:
-    """16x16 朝上。炮管加长加粗并加深色描边，朝向才能在 208 战场里看清。"""
-    t0, t1 = (tread, track) if frame == 0 else (track, tread)
-    outline = "0"
-    rows = []
-    for y in range(16):
-        row = ["."] * 16
-        if 6 <= y <= 14:
-            for x in (2, 3, 12, 13):
-                stripe = (x + y + frame) % 2 == 0
-                row[x] = t0 if stripe else t1
-            if y == 14:
-                for x in range(4, 12):
-                    row[x] = track
-        if 7 <= y <= 13:
-            for x in range(4, 12):
-                row[x] = body
-        elif y == 6:
-            for x in range(5, 11):
-                row[x] = body
-        if y == 9:
-            row[7] = barrel
-            row[8] = barrel
-        if y <= 5:
-            row[5] = outline
-            row[6] = barrel
-            row[7] = barrel
-            row[8] = barrel
-            row[9] = barrel
-            row[10] = outline
-            if y == 0:
-                row[5] = barrel
-                row[10] = barrel
-        rows.append(row)
+def tank(body: str, shade: str, barrel: str, frame: int) -> list[list[str]]:
+    """16x16 朝上。四边各留 1px 透明，节点仍按 16 显示，碰撞不必缩小。
+    车体只用 body/shade 两色；barrel 专供炮管。黑描边不算进调色板。
+    """
+    rows = [["."] * 16 for _ in range(16)]
+
+    def put(x: int, y: int, color: str) -> None:
+        if 0 <= x < 16 and 0 <= y < 16:
+            rows[y][x] = color
+
+    def track_color(y: int) -> str:
+        # 2px 横带 + 整带换相，两帧一眼能看出在滚
+        return shade if ((y // 2) + frame) % 2 == 0 else body
+
+    # 履带：左右各 3px，外圈留给透明/描边
+    for y in range(6, 15):
+        for x in (2, 3, 4, 11, 12, 13):
+            put(x, y, track_color(y))
+
+    # 车体
+    for y in range(7, 14):
+        for x in range(5, 11):
+            put(x, y, body)
+    for x in range(6, 10):
+        put(x, 6, body)
+
+    # 体积：暗部用 shade，不再借用炮管色/白色
+    put(9, 12, shade)
+    put(10, 12, shade)
+    put(9, 13, shade)
+    put(10, 13, shade)
+
+    # 炮塔用 shade，舱盖用黑
+    for y in range(9, 12):
+        for x in range(6, 10):
+            put(x, y, shade)
+    put(7, 10, "0")
+    put(8, 10, "0")
+
+    # 炮管通体 barrel；顶端缩进 1px，子弹仍从 16 碰撞边打出
+    for y in range(1, 7):
+        put(5, y, "0")
+        put(10, y, "0")
+        for x in range(6, 10):
+            put(x, y, barrel)
+
+    # 描边不写最外圈，保证上下左右各 1px 透明
+    opaque = {(x, y) for y in range(16) for x in range(16) if rows[y][x] != "."}
+    for x, y in list(opaque):
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nx, ny = x + dx, y + dy
+            if 1 <= nx <= 14 and 1 <= ny <= 14 and rows[ny][nx] == ".":
+                rows[ny][nx] = "0"
+
     return rows
 
 
+
 def boss(size: int, body: str, dark: str, accent: str, frame: int) -> list[list[str]]:
+    """多 tile Boss：加宽履带、炮塔中心块、全身描边，体量比小坦克更清晰。"""
     mid = size // 2
     barrel_w = 6 if size >= 32 else 4
     barrel_h = max(8, size // 3)
     left = mid - barrel_w // 2
     right = mid + barrel_w // 2 - 1
-    rows = []
+    rows: list[list[str]] = []
     for y in range(size):
-        row = []
+        row: list[str] = []
         for x in range(size):
             if y < barrel_h and left <= x <= right:
                 if x in (left, right):
                     row.append("0")
-                elif y <= 1:
-                    row.append("1")
                 else:
                     row.append(accent)
-            elif x < 3 or x >= size - 3 or y >= size - 3:
-                stripe = (x + y + frame) % 2 == 0
+            elif x < 4 or x >= size - 4 or y >= size - 4:
+                stripe = ((x + y + frame * 2) // 2) % 2 == 0
                 row.append(dark if stripe else accent)
-            elif mid - 2 <= x <= mid + 1 and mid - 1 <= y <= mid + 1:
+            elif mid - 3 <= x <= mid + 2 and mid - 2 <= y <= mid + 2:
                 row.append(dark)
+            elif mid - 1 <= x <= mid and mid - 1 <= y <= mid:
+                row.append("0")
             else:
-                row.append(body)
+                # 轻微体积：右下偏暗
+                if x > mid + size // 6 and y > mid + size // 6:
+                    row.append(dark)
+                else:
+                    row.append(body)
         rows.append(row)
+
+    filled = [(x, y) for y in range(size) for x in range(size) if rows[y][x] != "."]
+    for x, y in filled:
+        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            nx, ny = x + dx, y + dy
+            if 1 <= nx < size - 1 and 1 <= ny < size - 1 and rows[ny][nx] == ".":
+                rows[ny][nx] = "0"
+    # 最外 1px 留空，避免多 tile 车体和墙顶边
+    for i in range(size):
+        rows[0][i] = "."
+        rows[size - 1][i] = "."
+        rows[i][0] = "."
+        rows[i][size - 1] = "."
+    return rows
+
+
+
+def ground(variant: int) -> list[list[str]]:
+    """空地不是纯色。2x2 土块、碎石和少量苔点按变体错开，铺开后不像一张色纸。"""
+    rows = [["7"] * 16 for _ in range(16)]
+
+    def put(x: int, y: int, color: str) -> None:
+        if 0 <= x < 16 and 0 <= y < 16:
+            rows[y][x] = color
+
+    for y in range(0, 16, 2):
+        for x in range(0, 16, 2):
+            n = (x * 3 + y * 5 + variant * 11) % 13
+            if n in (0, 1):
+                put(x, y, "6")
+                put(x + 1, y, "6")
+                put(x, y + 1, "7")
+                put(x + 1, y + 1, "6")
+            elif n == 2:
+                put(x, y, "5")
+                put(x + 1, y + 1, "6")
+            elif n == 3:
+                put(x, y, "A")
+                put(x + 1, y, "9")
+                put(x, y + 1, "9")
+            elif n == 4:
+                put(x, y, "0")
+                put(x + 1, y, "3")
+                put(x, y + 1, "3")
     return rows
 
 
@@ -337,6 +408,129 @@ def looped(pattern: list[float], times: int) -> list[float]:
     return pattern * times
 
 
+def mix_tracks(*tracks: list[float]) -> list[float]:
+    length = max(len(track) for track in tracks)
+    mixed: list[float] = []
+    for index in range(length):
+        sample = 0.0
+        for track in tracks:
+            if index < len(track):
+                sample += track[index]
+        mixed.append(max(-1.0, min(1.0, sample)))
+    return mixed
+
+
+def midi_freq(note: int) -> float:
+    return 440.0 * (2.0 ** ((note - 69) / 12.0))
+
+
+def pulse(note: int | None, beats: float, volume: float, rate: int = 22050, duty: float = 0.125) -> list[float]:
+    """一拍方波。note 为空是休止，方便旋律对齐低音。"""
+    count = max(1, int(beats * 0.14 * rate))
+    if note is None:
+        return [0.0] * count
+    freq = midi_freq(note)
+    out: list[float] = []
+    for i in range(count):
+        t = i / rate
+        # 每拍收一点，循环点不会爆成咔哒
+        env = 0.82 + 0.18 * (1 - i / count)
+        wave = 1.0 if ((t * freq) % 1) < duty else -1.0
+        out.append(wave * volume * env)
+    return out
+
+
+def phrase(notes: list[tuple[int | None, float]], volume: float, duty: float = 0.125) -> list[float]:
+    merged: list[float] = []
+    for note, beats in notes:
+        merged.extend(pulse(note, beats, volume, duty=duty))
+    return merged
+
+
+def drum(beats: float, volume: float = 0.05, rate: int = 22050) -> list[float]:
+    return noise(beats * 0.14, volume, rate)
+
+
+def write_music() -> None:
+    """原创方波进行曲，不借用 Battle City 旋律。三首各自能循环。"""
+    # 菜单：慢一点的大调，一进游戏就有旋律
+    menu_lead = phrase(
+        [
+            (72, 1), (76, 1), (79, 2), (76, 1), (74, 1), (72, 2),
+            (71, 1), (72, 1), (74, 2), (76, 1), (74, 1), (72, 2),
+            (76, 1), (79, 1), (81, 2), (79, 1), (76, 1), (74, 2),
+            (72, 1), (74, 1), (76, 2), (74, 1), (72, 1), (71, 2),
+        ],
+        0.16,
+    )
+    menu_bass = phrase(
+        [(48, 2), (55, 2), (43, 2), (48, 2)] * 8,
+        0.10,
+        duty=0.25,
+    )
+    menu_answer = phrase(
+        [
+            (74, 1), (77, 1), (81, 2), (79, 1), (77, 1), (76, 2),
+            (74, 1), (76, 1), (77, 2), (79, 1), (77, 1), (76, 2),
+            (72, 1), (76, 1), (79, 2), (76, 1), (74, 1), (72, 2),
+            (71, 2), (72, 2), (74, 2), (72, 2),
+        ],
+        0.16,
+    )
+    # 战斗：稳定低音 + 上行旋律，比菜单更密
+    battle_lead = phrase(
+        [
+            (67, 1), (70, 1), (72, 1), (74, 1), (75, 2), (74, 1), (72, 1),
+            (70, 1), (67, 1), (70, 2), (72, 1), (70, 1), (67, 2),
+            (74, 1), (75, 1), (77, 2), (75, 1), (74, 1), (72, 2),
+            (70, 1), (72, 1), (74, 2), (70, 2), (67, 2),
+        ],
+        0.18,
+    )
+    battle_bass = phrase(
+        [(43, 1), (43, 1), (50, 1), (43, 1)] * 16,
+        0.12,
+        duty=0.25,
+    )
+    battle_answer = phrase(
+        [
+            (70, 1), (72, 1), (74, 1), (75, 1), (77, 2), (75, 1), (74, 1),
+            (72, 1), (70, 1), (72, 2), (74, 1), (72, 1), (70, 2),
+            (67, 1), (70, 1), (72, 2), (74, 1), (72, 1), (70, 2),
+            (67, 1), (70, 1), (72, 2), (67, 2), (65, 2),
+        ],
+        0.18,
+    )
+    battle_hat = concat(*([drum(1), [0.0] * len(drum(1))] * 32))
+    # Boss：小调、更低、留白更多
+    boss_lead = phrase(
+        [
+            (63, 2), (65, 1), (63, 1), (60, 2), (58, 2),
+            (63, 2), (67, 2), (65, 2), (63, 2),
+            (58, 2), (60, 1), (63, 1), (65, 4),
+            (63, 2), (60, 2), (58, 4),
+        ],
+        0.18,
+    )
+    boss_bass = phrase(
+        [(46, 2), (41, 2), (46, 2), (39, 2)] * 8,
+        0.13,
+        duty=0.25,
+    )
+    boss_answer = phrase(
+        [
+            (60, 2), (63, 2), (65, 2), (63, 2),
+            (58, 4), (60, 2), (63, 2),
+            (65, 2), (67, 2), (65, 2), (63, 2),
+            (60, 4), (58, 4),
+        ],
+        0.18,
+    )
+    write_wav(AUDIO / "bgm_menu.wav", mix_tracks(concat(menu_lead, menu_answer), menu_bass))
+    write_wav(AUDIO / "bgm_battle.wav", mix_tracks(concat(battle_lead, battle_answer), battle_bass, battle_hat))
+    write_wav(AUDIO / "bgm_boss.wav", mix_tracks(concat(boss_lead, boss_answer), boss_bass))
+
+
 def write_atlas_contents(names: list[str]) -> None:
     images = ",\n".join(
         f'    {{\n      "filename" : "{name}.png",\n      "idiom" : "universal"\n    }}'
@@ -351,7 +545,7 @@ def write_atlas_contents(names: list[str]) -> None:
     )
 
 
-def main() -> None:
+def main(skip_audio: bool = False) -> None:
     ATLAS.mkdir(parents=True, exist_ok=True)
     ICON.mkdir(parents=True, exist_ok=True)
     AUDIO.mkdir(parents=True, exist_ok=True)
@@ -363,6 +557,8 @@ def main() -> None:
         write_atlas(name, pixels)
         names.append(name)
 
+    for index in range(4):
+        add(f"tile_ground_{index}", ground(index))
     add("tile_brick", brick())
     add("tile_steel", steel())
     add("tile_water_0", water(0))
@@ -374,23 +570,31 @@ def main() -> None:
     for index in range(5):
         add(f"explosion_{index}", explosion(index))
 
+    # 每辆坦克只用 body/shade 两色；炮管默认同 shade，火力强化后换成热红。
+    # 护盾把车体外壳换成钢蓝两色。黑描边不计入调色板。
     tanks = {
-        "player": ("4", "5", "1", "3"),
-        "normal": ("2", "3", "1", "0"),
-        "fast": ("B", "C", "1", "D"),
-        "armored_green": ("9", "A", "8", "0"),
-        "armored_yellow": ("4", "5", "1", "0"),
-        "armored_gray": ("3", "2", "1", "0"),
-        "armored_red": ("E", "7", "1", "0"),
+        # 玩家：金 + 橙
+        "player": ("4", "5", "5"),
+        "player_fire": ("4", "5", "E"),
+        "player_shield": ("B", "C", "C"),
+        "player_fire_shield": ("B", "C", "E"),
+        # 敌人：各类型内部两色统一，炮管不再刷白
+        "normal": ("2", "3", "3"),
+        "fast": ("B", "C", "C"),
+        "armored_green": ("9", "A", "A"),
+        "armored_yellow": ("4", "5", "5"),
+        "armored_gray": ("3", "0", "0"),
+        "armored_red": ("E", "7", "7"),
     }
     for name, colors in tanks.items():
         add(f"tank_{name}_0", tank(*colors, 0))
         add(f"tank_{name}_1", tank(*colors, 1))
 
-    add("boss_mini_0", boss(32, "E", "7", "5", 0))
-    add("boss_mini_1", boss(32, "E", "7", "5", 1))
-    add("boss_final_0", boss(48, "E", "7", "F", 0))
-    add("boss_final_1", boss(48, "E", "7", "F", 1))
+    # Boss：红 + 暗红，炮管同暗红（去掉白尖/紫尖）
+    add("boss_mini_0", boss(32, "E", "7", "7", 0))
+    add("boss_mini_1", boss(32, "E", "7", "7", 1))
+    add("boss_final_0", boss(48, "E", "7", "7", 0))
+    add("boss_final_1", boss(48, "E", "7", "7", 1))
 
     add("powerup_star", powerup("4", "S"))
     add("powerup_helmet", powerup("2", "H"))
@@ -401,7 +605,7 @@ def main() -> None:
 
     write_atlas_contents(names)
 
-    icon = scale(tank("4", "5", "6", "3", 0), 64)
+    icon = scale(tank("4", "5", "5", 0), 64)
     write_png(ICON / "AppIcon.png", icon)
     (ICON / "Contents.json").write_text(
         """{
@@ -416,7 +620,7 @@ def main() -> None:
         encoding="utf-8",
     )
 
-    logo = scale(tank("4", "5", "6", "3", 0), 8)
+    logo = scale(tank("4", "5", "5", 0), 8)
     write_png(LAUNCH / "LaunchLogo.png", logo)
     (LAUNCH / "Contents.json").write_text(
         """{
@@ -426,6 +630,9 @@ def main() -> None:
 """,
         encoding="utf-8",
     )
+
+    if skip_audio:
+        return
 
     write_wav(AUDIO / "fire.wav", concat(tone(880, 0.04, 0.18), tone(440, 0.05, 0.12)))
     write_wav(AUDIO / "hit_brick.wav", concat(noise(0.06, 0.16), tone(180, 0.05, 0.12)))
@@ -439,35 +646,24 @@ def main() -> None:
     write_wav(AUDIO / "stage_start.wav", concat(tone(392, 0.08, 0.16), tone(523, 0.08, 0.16), tone(659, 0.16, 0.18)))
     write_wav(AUDIO / "game_over.wav", concat(tone(330, 0.16, 0.16), tone(262, 0.18, 0.14), tone(196, 0.28, 0.12)))
 
-    menu = concat(
-        tone(392, 0.2, 0.1, decay=False),
-        tone(494, 0.2, 0.1, decay=False),
-        tone(523, 0.2, 0.1, decay=False),
-        tone(392, 0.2, 0.1, decay=False),
-        tone(349, 0.2, 0.08, decay=False),
-        tone(392, 0.4, 0.1, decay=False),
-    )
-    battle = concat(
-        tone(262, 0.12, 0.1, decay=False),
-        tone(330, 0.12, 0.1, decay=False),
-        tone(392, 0.12, 0.1, decay=False),
-        tone(330, 0.12, 0.1, decay=False),
-        tone(294, 0.12, 0.09, decay=False),
-        tone(262, 0.12, 0.09, decay=False),
-        tone(196, 0.24, 0.1, decay=False),
-    )
-    boss_bgm = concat(
-        tone(196, 0.16, 0.12, decay=False),
-        tone(185, 0.16, 0.12, decay=False),
-        tone(165, 0.16, 0.12, decay=False),
-        tone(147, 0.32, 0.14, decay=False),
-        tone(196, 0.16, 0.12, decay=False),
-        tone(247, 0.32, 0.13, decay=False),
-    )
-    write_wav(AUDIO / "bgm_menu.wav", looped(menu, 4))
-    write_wav(AUDIO / "bgm_battle.wav", looped(battle, 6))
-    write_wav(AUDIO / "bgm_boss.wav", looped(boss_bgm, 6))
+    write_music()
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--skip-audio",
+        action="store_true",
+        help="只重绘精灵，避免无故改写 WAV",
+    )
+    parser.add_argument(
+        "--only-music",
+        action="store_true",
+        help="只重写三首 BGM，不动音效和贴图",
+    )
+    args = parser.parse_args()
+    if args.only_music:
+        AUDIO.mkdir(parents=True, exist_ok=True)
+        write_music()
+    else:
+        main(skip_audio=args.skip_audio)

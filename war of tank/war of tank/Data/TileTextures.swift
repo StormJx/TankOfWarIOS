@@ -11,9 +11,8 @@ enum TileTextures {
 
     private static var cache: [String: SKTexture] = [:]
 
-    /// 空地不生成节点，直接透出场景底色，所以返回 nil
+    /// 空地也有土块贴图。frame 对空地是变体编号，对水面才是动画帧。
     static func texture(for type: TileType, frame: Int = 0) -> SKTexture? {
-        guard type != .empty else { return nil }
         if let atlas = SpriteProvider.tile(type, frame: frame) {
             return atlas
         }
@@ -24,6 +23,23 @@ enum TileTextures {
         let texture = make(for: type, frame: frame)
         cache[key] = texture
         return texture
+    }
+
+    /// 砖贴图按左下、右下、左上、右上切开，和 GridMap 的 mask 位一致
+    static func brickQuadrant(_ index: Int) -> SKTexture? {
+        guard (0..<4).contains(index), let base = texture(for: .brick) else { return nil }
+        let key = "brick-quadrant-\(index)"
+        if let cached = cache[key] { return cached }
+        let rect = CGRect(
+            x: index % 2 == 1 ? 0.5 : 0,
+            y: index >= 2 ? 0.5 : 0,
+            width: 0.5,
+            height: 0.5
+        )
+        let piece = SKTexture(rect: rect, in: base)
+        piece.filteringMode = .nearest
+        cache[key] = piece
+        return piece
     }
 
     private static func make(for type: TileType, frame: Int = 0) -> SKTexture {
@@ -56,7 +72,15 @@ enum TileTextures {
 
         switch type {
         case .empty:
-            break
+            let specks = [
+                CGPoint(x: dot, y: quarter),
+                CGPoint(x: half, y: dot),
+                CGPoint(x: side - quarter, y: half),
+                CGPoint(x: quarter, y: side - quarter)
+            ]
+            let index = frame % max(specks.count, 1)
+            fill(CGRect(x: specks[index].x, y: specks[index].y, width: dot, height: dot), with: light, in: context)
+            fill(CGRect(x: half, y: half, width: thickness, height: thickness), with: dark, in: context)
 
         case .brick:
             fill(CGRect(x: 0, y: half - thickness / 2, width: side, height: thickness), with: dark, in: context)

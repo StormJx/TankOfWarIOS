@@ -149,6 +149,51 @@ struct LevelFlowTests {
             #expect(flow.screen == .playing)
         }
     }
+
+    @Test("对局中离开前台会暂停，切回不会自动继续")
+    func leavingForegroundPausesAndStaysPaused() {
+        withIsolatedSave {
+            let flow = GameFlow()
+            flow.startNewGame()
+            #expect(flow.isPaused == false)
+
+            flow.pauseWhenAppLeavesForeground()
+            #expect(flow.isPaused)
+            #expect(flow.screen == .playing)
+
+            flow.pauseWhenAppLeavesForeground()
+            #expect(flow.isPaused)
+
+            flow.resume()
+            #expect(flow.isPaused == false)
+        }
+    }
+
+    @Test("已经暂停时再进后台仍保持暂停")
+    func backgroundWhilePausedStaysPaused() {
+        withIsolatedSave {
+            let flow = GameFlow()
+            flow.startNewGame()
+            flow.togglePause()
+            #expect(flow.isPaused)
+
+            flow.pauseWhenAppLeavesForeground()
+            #expect(flow.isPaused)
+        }
+    }
+
+    @Test("菜单上离开前台不会把暂停带到下一局")
+    func leavingForegroundOnMenuDoesNotPause() {
+        withIsolatedSave {
+            let flow = GameFlow()
+            #expect(flow.screen == .menu)
+            flow.pauseWhenAppLeavesForeground()
+            #expect(flow.isPaused == false)
+
+            flow.startNewGame()
+            #expect(flow.isPaused == false)
+        }
+    }
 }
 
 private func withIsolatedSave(_ body: () -> Void) {

@@ -8,6 +8,8 @@ import SwiftUI
 
 struct GameContainerView: View {
 
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.displayScale) private var displayScale
     @StateObject private var flow = GameFlow()
     @State private var overlayScene: SKScene = SKScene(size: GameConfig.sceneSize)
     @State private var gameScene: GameScene?
@@ -19,7 +21,11 @@ struct GameContainerView: View {
             if flow.screen == .playing {
                 playLayout
             } else {
-                SpriteView(scene: overlayScene, preferredFramesPerSecond: GameConfig.preferredFramesPerSecond)
+                SpriteView(
+                    scene: overlayScene,
+                    preferredFramesPerSecond: GameConfig.preferredFramesPerSecond,
+                    options: [.allowsTransparency]
+                )
             }
         }
         .background(Color(chromeColor).ignoresSafeArea())
@@ -33,9 +39,15 @@ struct GameContainerView: View {
         .onChange(of: flow.isPaused) { paused in
             applyPause(paused)
         }
+        .onChange(of: scenePhase) { phase in
+            // 切回 .active 故意不 resume：保持暂停 overlay，等玩家自己按继续
+            if phase != .active {
+                flow.pauseWhenAppLeavesForeground()
+            }
+        }
     }
 
-    /// 菜单/结算跟菜单色，进对局后回到战场黑，避免战场外一圈和菜单色打架
+    /// 菜单铺满深蓝；对局外侧用和空地一样的土色，避免战场旁边一条死黑
     private var chromeColor: SKColor {
         flow.screen == .playing ? GameConfig.battlefieldColor : GameConfig.menuBackgroundColor
     }
@@ -62,9 +74,13 @@ struct GameContainerView: View {
         }
     }
 
+    /// 战场边长按设备像素整数倍放大，避免 16px 坦克被非整数倍拉伸发糊
     private func battlefieldSide(in size: CGSize) -> CGFloat {
-        let heightForBattlefield = size.height - GameConfig.hudHeight - GameConfig.controlAreaMinHeight
-        return max(0, min(size.width, heightForBattlefield))
+        let available = max(
+            0,
+            min(size.width, size.height - GameConfig.hudHeight - GameConfig.controlAreaMinHeight)
+        )
+        return GameConfig.integerScaledBattlefieldSide(available: available, displayScale: displayScale)
     }
 
     private func battlefield(side: CGFloat) -> some View {
@@ -104,7 +120,9 @@ struct GameContainerView: View {
             Button("II") { flow.togglePause() }
                 .font(.system(size: GameConfig.hudIconFontSize, weight: .bold, design: .monospaced))
                 .foregroundStyle(Color(GameConfig.hudTextColor))
-                .padding(.trailing, GameConfig.hudPauseButtonTrailing)
+                .padding(.horizontal, GameConfig.hudPauseHitPadding)
+                .padding(.vertical, GameConfig.hudPauseHitPadding)
+                .contentShape(Rectangle())
         }
         .frame(height: GameConfig.hudHeight)
     }

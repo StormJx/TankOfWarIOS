@@ -145,4 +145,55 @@ struct GridMapTests {
         #expect(map.blocksBullet(at: outside))
         #expect(map.destroyTile(at: outside, byLevel3Bullet: true) == false)
     }
+
+    @Test("普通子弹只打掉命中的一块砖，满星沿弹道再打一块")
+    func brickDamageIsQuarterTile() {
+        let map = makeLevel1Map()
+        let brick = GridPoint(col: 5, row: 12)
+        #expect(map.tile(at: brick) == .brick)
+        #expect(map.brickMask(at: brick) == GameConfig.fullBrickMask)
+
+        let once = map.damageBrick(
+            hitBy: quadrantProbe(0, at: brick),
+            travel: CGVector(dx: 1, dy: 0),
+            doubleDepth: false
+        )
+        #expect(once == [brick])
+        #expect(map.tile(at: brick) == .brick)
+        #expect(map.brickMask(at: brick) == 0b1110)
+        #expect(map.tankBlockers(at: brick).count == 3)
+
+        let fresh = makeLevel1Map()
+        let doubled = fresh.damageBrick(
+            hitBy: quadrantProbe(0, at: brick),
+            travel: CGVector(dx: 1, dy: 0),
+            doubleDepth: true
+        )
+        #expect(doubled == [brick])
+        #expect(fresh.brickMask(at: brick) == 0b1100)
+        #expect(fresh.blocksTank(at: brick))
+    }
+
+    @Test("整格 destroyTile 仍然一次拆光砖墙")
+    func destroyTileStillClearsWholeBrick() {
+        let map = makeLevel1Map()
+        let brick = GridPoint(col: 5, row: 12)
+        #expect(map.destroyTile(at: brick, byLevel3Bullet: false))
+        #expect(map.tile(at: brick) == .empty)
+        #expect(map.brickMask(at: brick) == 0)
+        #expect(map.tankBlockers(at: brick).isEmpty)
+    }
+
+    /// 落在某一 8pt 小块内部，不碰到另外三块
+    private func quadrantProbe(_ index: Int, at point: GridPoint) -> CGRect {
+        let half = GameConfig.tileSize / 2
+        let originX = CGFloat(point.col) * GameConfig.tileSize
+        let originY = GameConfig.sceneSide - CGFloat(point.row + 1) * GameConfig.tileSize
+        return CGRect(
+            x: originX + (index % 2 == 1 ? half : 0) + 1,
+            y: originY + (index >= 2 ? half : 0) + 1,
+            width: 4,
+            height: 4
+        )
+    }
 }

@@ -102,13 +102,11 @@ enum CollisionSystem {
             return .outOfBounds
         }
 
-        let tilePoint = map.gridPoint(at: position)
-        if map.blocksBullet(at: tilePoint) {
-            if bullet.canPierceBrick && map.tile(at: tilePoint) == .brick {
-                // 敌人吃星星后子弹穿过砖墙，不在这里截停
-            } else {
-                return .terrain(tilePoint)
-            }
+        if let tilePoint = map.bulletBlockingTile(
+            intersecting: bullet.collisionRect,
+            pierceBrick: bullet.canPierceBrick
+        ) {
+            return .terrain(tilePoint)
         }
 
         let bulletRect = bullet.collisionRect
@@ -147,14 +145,15 @@ enum CollisionSystem {
             ? current.offsetBy(dx: allowed, dy: 0)
             : current.offsetBy(dx: 0, dy: allowed)
 
-        for point in tilesOverlapping(clippedCandidate, map: map) where map.blocksTank(at: point) {
-            let blocker = tileRect(at: point, map: map)
-            allowed = clipAgainst(
-                current: current,
-                blocker: blocker,
-                delta: allowed,
-                horizontal: horizontal
-            )
+        for point in tilesOverlapping(clippedCandidate, map: map) {
+            for blocker in map.tankBlockers(at: point) {
+                allowed = clipAgainst(
+                    current: current,
+                    blocker: blocker,
+                    delta: allowed,
+                    horizontal: horizontal
+                )
+            }
         }
 
         for other in others where other !== tank && other.hp > 0 {

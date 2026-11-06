@@ -56,7 +56,8 @@ enum AudioManager {
     static func prepare() {
         guard !didPrepare else { return }
         didPrepare = true
-        try? AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default)
+        // .ambient 会被侧边静音键掐掉，菜单一进来就听不到默认 BGM
+        try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
         try? AVAudioSession.sharedInstance().setActive(true)
         for cue in [AudioCue.fire, .hitBrick, .hitSteel, .explosionSmall, .explosionBig,
                     .powerUpPickup, .powerUpAppear, .playerDeath, .bossPhase, .stageStart, .gameOver] {
@@ -93,7 +94,7 @@ enum AudioManager {
         musicPlayer?.stop()
         musicPlayer = makePlayer(named: track.rawValue)
         musicPlayer?.numberOfLoops = -1
-        musicPlayer?.volume = 0.45
+        musicPlayer?.volume = GameConfig.musicVolume
         if !isMuted {
             musicPlayer?.play()
         }

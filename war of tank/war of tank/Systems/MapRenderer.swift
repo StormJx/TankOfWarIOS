@@ -11,7 +11,7 @@ final class MapRenderer {
     private let map: GridMap
     private let terrainLayer = SKNode()
     private let grassLayer = SKNode()
-    private var tileNodes: [GridPoint: SKSpriteNode] = [:]
+    private var tileNodes: [GridPoint: SKNode] = [:]
     private var waterNodes: [SKSpriteNode] = []
     private var waterAge: TimeInterval = 0
     private var waterFrame = 0
@@ -55,7 +55,9 @@ final class MapRenderer {
     /// 子弹破墙后只重画这一个 tile，整图重建会在 60fps 下明显掉帧
     func refreshTile(at point: GridPoint) {
         if let old = tileNodes[point] {
-            waterNodes.removeAll { $0 === old }
+            if let sprite = old as? SKSpriteNode {
+                waterNodes.removeAll { $0 === sprite }
+            }
             old.removeFromParent()
         }
         tileNodes[point] = nil
@@ -64,7 +66,13 @@ final class MapRenderer {
 
     private func addNode(at point: GridPoint) {
         let type = map.tile(at: point)
-        guard let texture = TileTextures.texture(for: type) else { return }
+        if type == .brick {
+            addBrick(at: point)
+            return
+        }
+        // 相邻空地错开变体，避免 13×13 同一张土块印出来
+        let frame = type == .empty ? groundVariant(at: point) : 0
+        guard let texture = TileTextures.texture(for: type, frame: frame) else { return }
 
         let node = SKSpriteNode(texture: texture, size: GameConfig.tileNodeSize)
         node.position = map.center(of: point)
@@ -75,5 +83,38 @@ final class MapRenderer {
         if type == .water {
             waterNodes.append(node)
         }
+    }
+
+    private func groundVariant(at point: GridPoint) -> Int {
+        (point.col * 3 + point.row * 5) % GameConfig.groundVariantCount
+    }
+
+    /// 四块 8pt 各自用砖贴图的一角；打掉的块露出下面的土，不是纯色底
+    private func addBrick(at point: GridPoint) {
+        let mask = map.brickMask(at: point)
+        let container = SKNode()
+        container.position = map.center(of: point)
+        if let ground = TileTextures.texture(for: .empty, frame: groundVariant(at: point)) {
+            let soil = SKSpriteNode(texture: ground, size: GameConfig.tileNodeSize)
+            soil.texture?.filteringMode = .nearest
+            container.addChild(soil)
+        }
+        let half = GameConfig.tileSize / 4
+        let piece = GameConfig.tileSize / 2
+        for index in 0..<4 where mask & (1 << index) != 0 {
+            let texture = TileTextures.brickQuadrant(index)
+            let node = SKSpriteNode(
+                texture: texture,
+                color: texture == nil ? GameConfig.brickColor : .clear,
+                size: CGSize(width: piece, height: piece)
+            )
+            node.texture?.filteringMode = .nearest
+            let dx: CGFloat = index % 2 == 1 ? half : -half
+            let dy: CGFloat = index >= 2 ? half : -half
+            node.position = CGPoint(x: dx, y: dy)
+            container.addChild(node)
+        }
+        terrainLayer.addChild(container)
+        tileNodes[point] = container
     }
 }

@@ -4,6 +4,7 @@
 //
 
 import CoreGraphics
+import SpriteKit
 import Testing
 @testable import war_of_tank
 
@@ -110,5 +111,38 @@ struct PowerUpTests {
         let here = GridPoint(col: 4, row: 4)
         #expect(AIController.isInSeekRange(from: here, to: GridPoint(col: 4, row: 9)))
         #expect(AIController.isInSeekRange(from: here, to: GridPoint(col: 4, row: 10)) == false)
+    }
+
+    @Test("第 4、8 辆是掉落者，第 1 辆不是")
+    func rewardCarriersAreEveryFourthSpawn() {
+        #expect(SpawnSystem.isRewardSpawn(oneBasedIndex: 1) == false)
+        #expect(SpawnSystem.isRewardSpawn(oneBasedIndex: 4))
+        #expect(SpawnSystem.isRewardSpawn(oneBasedIndex: 8))
+        #expect(SpawnSystem.isRewardSpawn(oneBasedIndex: 3) == false)
+    }
+
+    @Test("前几关敌人不能吃道具，第 6 关起可以")
+    func earlyStagesReservePowerUpsForThePlayer() {
+        let early = PowerUpSystem(allowsEnemyPickup: false)
+        let later = PowerUpSystem(allowsEnemyPickup: true)
+        let player = PlayerTank(at: .zero)
+        let enemy = EnemyTank(type: .normal, at: CGPoint(x: 40, y: 0))
+        #expect(early.canCollect(player))
+        #expect(early.canCollect(enemy) == false)
+        #expect(later.canCollect(enemy))
+    }
+
+    @Test("新掉落会换掉场上还没吃的道具")
+    func aNewDropReplacesTheUncollectedOne() {
+        let map = GridMap(rows: Levels.level1.rows)
+        let parent = SKNode()
+        let system = PowerUpSystem()
+        let spot = map.center(of: GridPoint(col: 0, row: 1))
+        system.drop(at: spot, map: map, parent: parent, tanks: [])
+        let first = system.current
+        system.drop(at: spot, map: map, parent: parent, tanks: [])
+        #expect(system.current != nil)
+        #expect(system.current !== first)
+        #expect(parent.children.count == 1)
     }
 }

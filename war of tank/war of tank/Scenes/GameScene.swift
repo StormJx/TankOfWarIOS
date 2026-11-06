@@ -83,6 +83,9 @@ final class GameScene: SKScene {
 
         enemies.removeAll { enemy in
             guard enemy.hp <= 0 else { return false }
+            if enemy.isRewardCarrier {
+                powerUps.drop(at: enemy.position, map: map, parent: self, tanks: allLivingTanks())
+            }
             if let boss = enemy as? BossTank {
                 EffectFactory.bossDeath(at: boss.position, footprint: boss.size, in: self)
             }
@@ -118,7 +121,11 @@ final class GameScene: SKScene {
         #endif
 
         spawnSystem = SpawnSystem(mix: level.enemyMix)
-        powerUps = PowerUpSystem(isBossLevel: level.bossType != nil)
+        let stage = flow?.levels.stageNumber ?? 1
+        powerUps = PowerUpSystem(
+            isBossLevel: level.bossType != nil,
+            allowsEnemyPickup: stage >= GameConfig.enemyPowerUpMinStage
+        )
         lives = GameConfig.playerLives
         bindStatusCallbacks()
 
@@ -172,8 +179,15 @@ final class GameScene: SKScene {
             liveEnemies: enemies,
             blockingTanks: blockers
         )
+        let stage = flow?.levels.stageNumber ?? 1
         for enemy in born {
+            if stage <= GameConfig.earlyStageCount, !enemy.isBoss {
+                enemy.bulletSpeed = GameConfig.earlyEnemyBulletSpeed
+            }
             addChild(enemy)
+            if enemy.isRewardCarrier {
+                EffectFactory.applyRewardFlash(to: enemy)
+            }
             enemies.append(enemy)
         }
     }
@@ -199,7 +213,8 @@ final class GameScene: SKScene {
                 map: map,
                 player: livingPlayer,
                 bullets: bullets,
-                powerUp: powerUps.current
+                powerUp: powerUps.allowsEnemyPickup ? powerUps.current : nil,
+                stage: flow?.levels.stageNumber ?? 1
             )
             if let final = enemy as? FinalBoss, command.isCharging {
                 applyCharge(final, direction: command.direction ?? final.direction, dt: dt, map: map)
@@ -231,7 +246,12 @@ final class GameScene: SKScene {
             x: tank.position.x + clipped.x,
             y: tank.position.y + clipped.y
         )
-        tank.presentMotion(clipped.x != 0 || clipped.y != 0)
+        let wanted = abs(desired.x) > GameConfig.collisionEpsilon || abs(desired.y) > GameConfig.collisionEpsilon
+        let moved = abs(clipped.x) > GameConfig.collisionEpsilon || abs(clipped.y) > GameConfig.collisionEpsilon
+        if tank.commandedDirection == nil, wanted, !moved {
+            tank.stopSlide()
+        }
+        tank.presentMotion(moved)
     }
 
     private func updatePowerUps(dt: TimeInterval, map: GridMap) {
@@ -262,6 +282,11 @@ final class GameScene: SKScene {
         }
         if added > live {
             PresentationCues.fired()
+            EffectFactory.muzzleFlash(
+                at: tank.muzzlePoint(along: tank.direction.vector),
+                color: tank.muzzleFlashColor,
+                in: self
+            )
         }
     }
 
@@ -316,12 +341,23 @@ final class GameScene: SKScene {
                 EffectFactory.bigExplosion(at: map.center(of: point), in: self)
                 PresentationCues.hitTerrain(.base)
                 bullet.markDestroyed()
-                finishGame(message: "GAME OVER")
+                finishGame()
                 return true
             }
-            let destroyed = map.destroyTile(at: point, byLevel3Bullet: bullet.canBreakSteel)
-            if destroyed {
-                mapRenderer?.refreshTile(at: point)
+            if tile == .brick {
+                let changed = map.damageBrick(
+                    hitBy: bullet.collisionRect,
+                    travel: bullet.travel,
+                    doubleDepth: bullet.canBreakSteel
+                )
+                for point in changed {
+                    mapRenderer?.refreshTile(at: point)
+                }
+            } else {
+                let destroyed = map.destroyTile(at: point, byLevel3Bullet: bullet.canBreakSteel)
+                if destroyed {
+                    mapRenderer?.refreshTile(at: point)
+                }
             }
             PresentationCues.hitTerrain(tile)
             EffectFactory.smallExplosion(at: map.center(of: point), in: self)
@@ -329,6 +365,8 @@ final class GameScene: SKScene {
             return true
 
         case .tank(let tank):
+            let hpBefore = tank.hp
+            let shieldWasUp = (tank as? PlayerTank)?.hasShield == true
             tank.takeDamage()
             if tank.hp <= 0 {
                 if !(tank is BossTank) {
@@ -341,6 +379,7 @@ final class GameScene: SKScene {
             } else {
                 EffectFactory.hitSpark(at: bullet.position, in: self)
                 PresentationCues.smallExplosion()
+                EffectFactory.hitFlash(on: tank, shielded: shieldWasUp && tank.hp == hpBefore)
             }
             bullet.markDestroyed()
             return true
@@ -371,7 +410,7 @@ final class GameScene: SKScene {
         lives -= 1
         refreshHUD()
         if lives <= 0 {
-            finishGame(message: "GAME OVER")
+            finishGame()
             return
         }
         respawnRemaining = GameConfig.playerRespawnDelay
@@ -494,6 +533,7 @@ final class GameScene: SKScene {
 
     private func detonateGrenade() {
         for enemy in enemies where enemy.hp > 0 {
+            let hpBefore = enemy.hp
             if enemy.isBoss {
                 enemy.takeDamage(GameConfig.grenadeBossDamage)
             } else if !enemy.isInvincible {
@@ -503,6 +543,9 @@ final class GameScene: SKScene {
                 EffectFactory.bigExplosion(at: enemy.position, in: self)
             } else {
                 EffectFactory.hitSpark(at: enemy.position, in: self)
+                if enemy.hp < hpBefore {
+                    EffectFactory.hitFlash(on: enemy, shielded: false)
+                }
             }
         }
     }
@@ -601,11 +644,15 @@ final class GameScene: SKScene {
             }
         }
         if let hit = result.hitPlayer {
+            let hpBefore = hit.hp
+            let shieldWasUp = (hit as? PlayerTank)?.hasShield == true
             hit.takeDamage(max(hit.hp, 1))
             if hit.hp <= 0 {
                 EffectFactory.bigExplosion(at: hit.position, in: self)
                 EffectFactory.shake(scene: self)
                 handleTankDestroyed(hit)
+            } else {
+                EffectFactory.hitFlash(on: hit, shielded: shieldWasUp && hit.hp == hpBefore)
             }
         }
         if result.hitSolid {
@@ -641,10 +688,9 @@ final class GameScene: SKScene {
         }
     }
 
-    private func finishGame(message: String) {
+    private func finishGame() {
         guard !isGameOver else { return }
         isGameOver = true
-        print(message)
         PresentationCues.gameOver()
         flow?.handleDefeat()
     }

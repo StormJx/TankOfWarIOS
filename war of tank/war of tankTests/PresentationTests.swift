@@ -10,9 +10,13 @@ import Testing
 
 struct PresentationTests {
 
-    @Test("地形贴图是 nearest，空地没有贴图")
+    @Test("地形贴图是 nearest，空地有土块变体")
     func tileTexturesStayNearest() {
-        #expect(TileTextures.texture(for: .empty) == nil)
+        let ground = TileTextures.texture(for: .empty)
+        #expect(ground != nil)
+        #expect(ground?.filteringMode == .nearest)
+        let other = TileTextures.texture(for: .empty, frame: 1)
+        #expect(other != nil)
         let brick = TileTextures.texture(for: .brick)
         #expect(brick != nil)
         #expect(brick?.filteringMode == .nearest)
@@ -43,18 +47,90 @@ struct PresentationTests {
         #expect(AudioManager.isMuted == false)
     }
 
-    @Test("菜单和结算用菜单色，战场保持纯黑")
+    @Test("菜单深蓝和战场土色分开")
     func menuChromeDiffersFromBattlefield() {
-        #expect(isBlack(GameConfig.battlefieldColor))
-        #expect(!isBlack(GameConfig.menuBackgroundColor))
+        let field = channels(GameConfig.battlefieldColor)
+        let menu = channels(GameConfig.menuBackgroundColor)
+        #expect(field.g > field.b)
+        #expect(menu.b > menu.g)
+        #expect(abs(field.r - menu.r) > 0.05 || abs(field.b - menu.b) > 0.05)
     }
 
-    private func isBlack(_ color: SKColor) -> Bool {
+    private func channels(_ color: SKColor) -> (r: CGFloat, g: CGFloat, b: CGFloat) {
         var r: CGFloat = 0
         var g: CGFloat = 0
         var b: CGFloat = 0
         var a: CGFloat = 0
         color.getRed(&r, green: &g, blue: &b, alpha: &a)
-        return r < 0.01 && g < 0.01 && b < 0.01 && a > 0.99
+        return (r, g, b)
     }
+
+    @Test("战场边长按 sceneSide 整数倍吸附，过窄时退回可用边长")
+    func battlefieldSideSnapsToIntegerScale() {
+        let side = GameConfig.sceneSide
+        #expect(GameConfig.integerScaledBattlefieldSide(available: side * 2 + 30) == side * 2)
+        #expect(GameConfig.integerScaledBattlefieldSide(available: side * 1.2) == side)
+        #expect(GameConfig.integerScaledBattlefieldSide(available: side * 0.8) == side * 0.8)
+        #expect(GameConfig.integerScaledBattlefieldSide(available: 0) == 0)
+        let sharp = GameConfig.integerScaledBattlefieldSide(available: 402, displayScale: 3)
+        #expect(abs(sharp - (5 * side / 3)) < 0.02)
+    }
+
+    @Test("坦克视觉缩进和抖动只是表现常量，碰撞仍按 tile")
+    func tankPresentationConstantsStayVisualOnly() {
+        #expect(GameConfig.tankVisualInset == 1)
+        #expect(GameConfig.tankBobAmplitude == 0.5)
+        #expect(GameConfig.tankBobPeriod == 0.1)
+        #expect(GameConfig.tankTurnDuration == 0.05)
+        #expect(GameConfig.tileNodeSize == CGSize(width: GameConfig.tileSize, height: GameConfig.tileSize))
+    }
+
+    @Test("炮口闪挂在 effect 层并带自删动作")
+    func muzzleFlashIsTransientEffect() {
+        let scene = SKScene(size: GameConfig.sceneSize)
+        EffectFactory.muzzleFlash(at: CGPoint(x: 16, y: 16), color: GameConfig.playerShadeColor, in: scene)
+        let flash = scene.children.first { $0.zPosition == GameConfig.Layer.effect }
+        #expect(flash != nil)
+        #expect(flash?.hasActions() == true)
+        #expect(flash?.position == CGPoint(x: 16, y: 16))
+    }
+
+    @Test("受击闪白会自删；无敌时不叠")
+    func hitFlashSkipsInvincibleAndRemovesItself() {
+        let tank = PlayerTank(at: .zero)
+        EffectFactory.hitFlash(on: tank, shielded: false)
+        let overlay = tank.childNode(withName: GameConfig.hitFlashNodeName)
+        #expect(overlay != nil)
+        #expect(overlay?.hasActions() == true)
+        #expect(overlay?.zPosition == GameConfig.tankOverlayZ)
+
+        tank.childNode(withName: GameConfig.hitFlashNodeName)?.removeFromParent()
+        tank.isInvincible = true
+        EffectFactory.hitFlash(on: tank, shielded: false)
+        #expect(tank.childNode(withName: GameConfig.hitFlashNodeName) == nil)
+    }
+
+    @Test("护盾挡住时走钢蓝闪而不是白闪")
+    func shieldHitFlashUsesSteelBlue() {
+        let tank = PlayerTank(at: .zero)
+        EffectFactory.hitFlash(on: tank, shielded: true)
+        let overlay = tank.childNode(withName: GameConfig.hitFlashNodeName) as? SKSpriteNode
+        #expect(overlay != nil)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        overlay?.color.getRed(&r, green: &g, blue: &b, alpha: &a)
+        var er: CGFloat = 0, eg: CGFloat = 0, eb: CGFloat = 0, ea: CGFloat = 0
+        GameConfig.playerShieldBodyColor.getRed(&er, green: &eg, blue: &eb, alpha: &ea)
+        #expect(abs(r - er) < 0.01)
+        #expect(abs(g - eg) < 0.01)
+        #expect(abs(b - eb) < 0.01)
+    }
+
+    @Test("发布用调试开关默认全关")
+    func debugSwitchesStayOff() {
+        #expect(GameConfig.debugShowGrid == false)
+        #expect(GameConfig.debugShowStats == false)
+        #expect(GameConfig.debugTerrainShowcase == false)
+        #expect(GameConfig.debugStartingFirepower == 0)
+    }
+
 }
